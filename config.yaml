@@ -1,0 +1,31 @@
+# ==========================================
+# IDMS 智能驾驶员监控系统 - 全局配置
+# ==========================================
+
+system:
+  camera_id: 0                  # 默认摄像头索引
+  frame_width: 640              # 降低分辨率以提高FPS 
+  frame_height: 480
+  queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性 
+
+# --- 舱内监控 (Internal) ---
+internal:
+  ear_threshold: 0.22           # 眼睛纵横比阈值 (低于此值判定为闭眼) 
+  mar_threshold: 0.60           # 嘴部纵横比阈值 (高于此值判定为张嘴) 
+  consecutive_frames_eye: 45    # 闭眼持续帧数报警阈值 (约1.5秒) 
+  consecutive_frames_mouth: 60  # 哈欠持续帧数阈值 
+
+# --- 舱外监控 (External) ---
+external:
+  model_path: "data/models/yolov8n.pt"  # 使用Nano模型以适应CPU运行 
+  conf_threshold: 0.50          # 只保留置信度大于50%的检测结果 
+  # 距离估算参数 (相似三角形原理) 
+  # 注意：known_width 是车辆平均宽度(米)，focal_length 需要你们实测校准 
+  known_width: 1.8              
+  focal_length: 600.0           # 这是一个预设值，需要根据实际摄像头进行校准
+
+# --- 界面与报警 (UI) ---
+ui:
+  show_landmarks: true          # 是否绘制面部网格
+  warning_color: [0, 0, 255]    # 红色 (BGR格式)
+  normal_color: [0, 255, 0]     # 绿色 (BGR格式)
