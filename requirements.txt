@@ -1,0 +1,16 @@
+# 核心图像处理与计算机视觉库
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# 舱内监测算法库 (Face Mesh)
+mediapipe>=0.10.0
+
+# 舱外感知算法库 (YOLOv8)
+ultralytics>=8.0.0
+
+# 科学计算与辅助工具 (用于计算距离公式等)
+scipy>=1.10.0
+imutils>=0.5.4
+
+# 音频报警库
+pygame>=2.5.0
