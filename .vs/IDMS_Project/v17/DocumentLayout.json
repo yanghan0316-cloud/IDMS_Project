@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\tests\\test_camera_fps.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tests\\test_camera_fps.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\test-environment.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:test-environment.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
@@ -19,15 +23,27 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "test_camera_fps.py",
+              "DocumentMoniker": "E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\tests\\test_camera_fps.py",
+              "RelativeDocumentMoniker": "tests\\test_camera_fps.py",
+              "ToolTip": "E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\tests\\test_camera_fps.py",
+              "RelativeToolTip": "tests\\test_camera_fps.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-12-02T02:55:34.343Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "test-environment.py",
               "DocumentMoniker": "E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\test-environment.py",
               "RelativeDocumentMoniker": "test-environment.py",
               "ToolTip": "E:\\\u4EA4\u79D1\u8D5B\u8BFE\u9898\\IDMS_Project\\test-environment.py",
               "RelativeToolTip": "test-environment.py",
-              "ViewState": "AgIAAAkAAAAAAAAAAAAAABIAAAAVAAAAAAAAAA==",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAAAA8AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-11-30T15:04:16.662Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-30T15:04:16.662Z"
             }
           ]
         }
