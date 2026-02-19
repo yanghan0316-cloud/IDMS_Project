@@ -17,13 +17,29 @@ internal:
 
 # --- 舱外监控 (External) ---
 external:
-  model_path: "data/models/yolov8n.pt"  # 使用Nano模型以适应CPU运行 
-  conf_threshold: 0.50          # 只保留置信度大于50%的检测结果 
-  # 距离估算参数 (相似三角形原理) 
-  # 注意：known_width 是车辆平均宽度(米)，focal_length 需要你们实测校准 
-  known_width: 1.8              
-  focal_length: 600.0           # 这是一个预设值，需要根据实际摄像头进行校准
+  # --- YOLOv8 配置 ---
+  model_path: "yolov8n.pt"        # 模型文件 (Nano版, 适合CPU)
+  conf_threshold: 0.5             # 置信度阈值
+  imgsz: 640                      # 推理输入尺寸 (降低可提速)
+  device: "cpu"                   # 'cpu' 或 'cuda:0'
+  roi_top_ratio: 0.35             # ROI 上边界 (0.35 = 只检测下方65%)
 
+  # --- 距离估算 ---
+  focal_length: 600.0             # 焦距常量 F (需校准! 见 calibration_helper)
+  known_width: 1.8                # 默认车辆宽度 (米)
+  max_distance: 100.0             # 距离上限
+  min_distance: 0.5               # 距离下限
+  smoothing: 0.3                  # EMA 平滑系数 (0=关闭, 0.3=推荐)
+  class_widths:                   # 按类别覆盖宽度
+    3: 0.8                        # Motorcycle
+    5: 2.5                        # Bus
+    7: 2.4                        # Truck
+
+  # --- 碰撞预警 ---
+  ttc_threshold: 1.5              # TTC 红色警报阈值 (秒)
+  safe_distance_time: 2.0         # 安全跟车时间 (秒, "两秒法则")
+  match_pixel_base: 80            # 帧间匹配基础像素阈值
+  cooldown_sec: 3.0               # 红色警报冷却时间 (秒)
 # --- 界面与报警 (UI) ---
 ui:
   show_landmarks: true          # 是否绘制面部网格

@@ -1,106 +1,112 @@
+"""
+YOLOv8 车辆检测器
+================
+封装 ultralytics YOLOv8，仅保留驾驶场景中需要关注的目标类别。
+
+"""
+
 import cv2
 import numpy as np
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None  # 允许在未安装 ultralytics 时加载模块（用于测试桩）
+
 
 class YoloDetector:
     def __init__(self, config):
         """
         初始化 YOLOv8 检测器
-        
+
         Args:
             config (dict): 来自 config.yaml 的 external 配置部分
+                必需键:
+                    model_path (str): 模型文件路径，如 'yolov8n.pt'
+                可选键:
+                    conf_threshold (float): 置信度阈值，默认 0.5
+                    imgsz (int): 推理输入尺寸，默认 640。降低可提升速度
+                    device (str): 'cpu' 或 'cuda:0'，默认 'cpu'
+                    roi_top_ratio (float): ROI 上边界占画面高度的比例
+                        默认 0.4，即只检测画面下方 60%（路面区域）
+                        设为 0.0 则检测全画面
         """
-        print(f"[YOLO] 正在加载模型: {config['model_path']} ...")
-        # 加载预训练模型 (yolov8n.pt) 
-        self.model = YOLO(config['model_path'])
-        
-        # 设定置信度阈值 (如 0.5) 
+        if YOLO is None:
+            raise ImportError(
+                "ultralytics 未安装，请运行: pip install ultralytics"
+            )
+
+        model_path = config['model_path']
+        print(f"[YOLO] 正在加载模型: {model_path} ...")
+        self.model = YOLO(model_path)
+
         self.conf_threshold = config.get('conf_threshold', 0.5)
-        
-        # 定义我们需要关注的 COCO 数据集类别索引
-        # COCO 标准索引: 2=Car, 3=Motorcycle, 5=Bus, 7=Truck 
+        self.imgsz = config.get('imgsz', 640)
+        self.device = config.get('device', 'cpu')
+
+        # ROI 裁剪：默认只检测下方 60% 区域（跳过天空和远景）
+        self.roi_top_ratio = config.get('roi_top_ratio', 0.4)
+
+        # COCO 类别索引: 2=Car, 3=Motorcycle, 5=Bus, 7=Truck
         self.target_classes = {2, 3, 5, 7}
-        
-        # 用于显示的标签映射
         self.class_names = self.model.names
 
     def process(self, frame):
         """
         执行推理并过滤结果
-        
-        Args:
-            frame (numpy.ndarray): 输入的视频帧
-            
-        Returns:
-            list: 检测结果列表，每项包含 {'box': [x1,y1,x2,y2], 'class_id': int, 'conf': float}
-        """
-        # 1. 执行推理 (Inference)
-        # verbose=False 防止在终端打印大量日志
-        # stream=True 在处理视频流时内存更高效
-        results = self.model(frame, verbose=False, conf=self.conf_threshold)
-        
-        valid_detections = []
 
-        # YOLOv8 返回的是一个 Results 对象列表 (因为可能是 batch 推理)
-        # 我们只处理第一张图 (r[0])
+        Args:
+            frame (numpy.ndarray): 输入的视频帧 (BGR)
+
+        Returns:
+            list[dict]: 检测结果列表，每项包含:
+                - box: [x1, y1, x2, y2] (相对于原始帧的坐标)
+                - class_id: int
+                - class_name: str
+                - conf: float
+        """
+        h, w = frame.shape[:2]
+
+        # === ROI 裁剪优化 ===
+        roi_y_offset = 0
+        if self.roi_top_ratio > 0:
+            roi_y_offset = int(h * self.roi_top_ratio)
+            roi_frame = frame[roi_y_offset:, :]
+        else:
+            roi_frame = frame
+
+        # === 推理 ===
+        results = self.model(
+            roi_frame,
+            verbose=False,
+            conf=self.conf_threshold,
+            imgsz=self.imgsz,
+            device=self.device,
+        )
+
+        valid_detections = []
         result = results[0]
-        
-        # 获取边界框数据 (Boxes object)
         boxes = result.boxes
 
         for box in boxes:
-            # 获取类别 ID (转为整数)
             cls_id = int(box.cls[0])
-            
-            # 2. 类别过滤 (Class Filtering) 
-            # 如果不是我们关心的车辆类别，直接跳过
+
+            # 类别过滤
             if cls_id not in self.target_classes:
                 continue
 
-            # 获取置信度
             conf = float(box.conf[0])
-            
-            # 获取边界框坐标 (x1, y1, x2, y2)
-            # xyxy 格式适用于画框
             x1, y1, x2, y2 = box.xyxy[0].tolist()
-            
-            # 将结果存入列表
+
+            # 将 ROI 坐标映射回原始帧坐标
+            y1 += roi_y_offset
+            y2 += roi_y_offset
+
             valid_detections.append({
                 'box': [int(x1), int(y1), int(x2), int(y2)],
                 'class_id': cls_id,
                 'class_name': self.class_names[cls_id],
-                'conf': conf
+                'conf': conf,
             })
-            
-        return valid_detections
 
-# 单元测试代码 (仅当直接运行此文件时执行)
-if __name__ == '__main__':
-    # 模拟一个配置字典
-    dummy_config = {
-        'model_path': 'yolov8n.pt',  # 确保你有这个文件，或者库会自动下载
-        'conf_threshold': 0.5
-    }
-    
-    detector = YoloDetector(dummy_config)
-    
-    # 打开摄像头测试
-    cap = cv2.VideoCapture(0)
-    while True:
-        ret, img = cap.read()
-        if not ret: break
-        
-        detections = detector.process(img)
-        
-        # 简单绘制一下结果
-        for d in detections:
-            x1, y1, x2, y2 = d['box']
-            label = f"{d['class_name']} {d['conf']:.2f}"
-            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(img, label, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            
-        cv2.imshow('YOLO Test', img)
-        if cv2.waitKey(1) == ord('q'): break
-    
-    cap.release()
-    cv2.destroyAllWindows()
+        return valid_detections
