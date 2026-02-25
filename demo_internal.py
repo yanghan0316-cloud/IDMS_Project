@@ -1,54 +1,148 @@
-"""
-一个独立的舱内 Demo：只跑 MediaPipe + EAR/MAR + 状态机
+"""demo_internal.py
+
+一个独立的舱内 Demo：只跑 MediaPipe + EAR/MAR + 状态机 + 头部姿态
 
 运行：
     python demo_internal.py
+    python demo_internal.py --csv logs/internal.csv
 按 q 退出。
+
+【TODO(参数待定)】
+- 如果你们还不确定 FPS：先跑这个 demo，看窗口左下角的 FPS，然后把 config.yaml 里的 internal.fps 填上。
+  填上后，你就可以用 *_duration_sec 来设置“持续多少秒算报警”，比直接写帧数更直观。
 """
+
+import argparse
+import csv
+import time
+from pathlib import Path
+
 import cv2
 import yaml
+
 from src.internal.face_mesh import FaceMeshDetector
 
 
-def load_config(path="config.yaml"):
+def load_config(path: str = "config.yaml"):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def main():
-    cfg = load_config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
+    parser.add_argument("--csv", default="", help="Optional: save per-frame metrics to CSV")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
     detector = FaceMeshDetector(cfg.get("internal", {}))
 
     cap = cv2.VideoCapture(cfg["system"].get("camera_id", 0))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["system"].get("frame_width", 640))
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["system"].get("frame_height", 480))
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # CSV logger
+    csv_fp = None
+    writer = None
+    if args.csv:
+        out_path = Path(args.csv)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        csv_fp = out_path.open("w", newline="", encoding="utf-8")
+        writer = csv.writer(csv_fp)
+        writer.writerow([
+            "ts", "has_face",
+            "ear", "mar",
+            "blink", "is_drowsy", "is_yawning",
+            "yaw", "pitch", "roll",
+            "is_distracted", "is_nodding",
+            "drowsy_frames", "yawn_frames", "distracted_frames", "nod_frames",
+        ])
+        print(f"[Demo] CSV logging enabled: {out_path}")
 
-        data = detector.process(frame)
+    # FPS
+    t0 = time.time()
+    frames = 0
+    fps_disp = 0
 
-        # 画一些关键文字
-        y = 30
-        for k in ["has_face", "ear", "mar", "blink", "is_drowsy", "is_yawning", "yaw", "pitch", "roll"]:
-            v = data.get(k)
-            txt = f"{k}: {v:.3f}" if isinstance(v, float) else f"{k}: {v}"
-            cv2.putText(frame, txt, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
-            y += 24
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        # 简单红色报警
-        if data.get("is_drowsy") or data.get("is_yawning"):
-            cv2.putText(frame, "WARNING!", (frame.shape[1]-200, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
+            data = detector.process(frame)
 
-        cv2.imshow("Internal Demo (q to quit)", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+            # 画一些关键文字
+            y = 28
+            show_keys = [
+                "has_face",
+                "ear", "mar",
+                "blink", "is_drowsy", "is_yawning",
+                "yaw", "pitch", "roll",
+                "is_distracted", "is_nodding",
+            ]
+            for k in show_keys:
+                v = data.get(k)
+                txt = f"{k}: {v:.3f}" if isinstance(v, float) else f"{k}: {v}"
+                cv2.putText(frame, txt, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                y += 22
 
-    detector.close()
-    cap.release()
-    cv2.destroyAllWindows()
+            # 报警文字
+            warn = []
+            if data.get("is_drowsy"):
+                warn.append("DROWSY")
+            if data.get("is_yawning"):
+                warn.append("YAWN")
+            if data.get("is_distracted"):
+                warn.append("DISTRACT")
+            if data.get("is_nodding"):
+                warn.append("NOD")
+
+            if warn:
+                cv2.putText(frame, "WARNING: " + ",".join(warn), (frame.shape[1] - 420, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 3)
+
+            # FPS 统计
+            frames += 1
+            if time.time() - t0 >= 1.0:
+                fps_disp = frames
+                frames = 0
+                t0 = time.time()
+
+            cv2.putText(frame, f"FPS: {fps_disp}", (10, frame.shape[0] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+            # 写 CSV
+            if writer is not None:
+                writer.writerow([
+                    time.time(),
+                    int(bool(data.get("has_face"))),
+                    float(data.get("ear", 0.0)),
+                    float(data.get("mar", 0.0)),
+                    int(bool(data.get("blink"))),
+                    int(bool(data.get("is_drowsy"))),
+                    int(bool(data.get("is_yawning"))),
+                    float(data.get("yaw", 0.0)),
+                    float(data.get("pitch", 0.0)),
+                    float(data.get("roll", 0.0)),
+                    int(bool(data.get("is_distracted"))),
+                    int(bool(data.get("is_nodding"))),
+                    int(data.get("drowsy_frames", 0)),
+                    int(data.get("yawn_frames", 0)),
+                    int(data.get("distracted_frames", 0)),
+                    int(data.get("nod_frames", 0)),
+                ])
+
+            cv2.imshow("Internal Demo (q to quit)", frame)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    finally:
+        detector.close()
+        cap.release()
+        cv2.destroyAllWindows()
+        if csv_fp is not None:
+            csv_fp.close()
 
 
 if __name__ == "__main__":

@@ -105,6 +105,9 @@ def main():
     visualizer = Visualizer(config['ui']) # 绘图器 
 
     # --- 实例化舱内模块 (TODO) ---
+    # 如果 UI 需要画人脸关键点，顺便打开 return_landmarks
+    # 【TODO(参数待定)】return_landmarks 会增加 CPU 开销；如果卡顿就关掉 ui.show_landmarks
+    config['internal']['return_landmarks'] = bool(config.get('ui', {}).get('show_landmarks', False))
     face_detector = FaceMeshDetector(config['internal'])
 
     print("[System] 系统就绪！按 'q' 键退出。")

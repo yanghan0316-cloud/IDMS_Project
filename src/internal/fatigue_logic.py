@@ -7,9 +7,13 @@ src.internal.fatigue_logic
 - is_yawning: 是否哈欠（张嘴时间过长）
 - blink: 是否眨眼（短暂闭眼事件，可选）
 
-用法（在 FaceMeshDetector.process 里）：
+【TODO(参数待定)】
+- 如果你们后续测得真实 FPS，请在 config.yaml 里填 internal.fps。
+  这样你就可以用 *_duration_sec（秒）来设置阈值；否则会退化为使用 *frames。
+- 若驾驶员戴口罩导致嘴部关键点不稳定，可以在 config.yaml 里临时把 enable_yawn 设为 false。
+
+用法（在 FaceMeshDetector.process 里）:
     analyzer = FatigueAnalyzer(config["internal"])
-    ...
     out = analyzer.update(ear, mar)
 """
 
@@ -34,19 +38,39 @@ class FatigueState:
 
 class FatigueAnalyzer:
     def __init__(self, config: Dict):
-        # 阈值
-        self.ear_threshold = float(config.get("ear_threshold", 0.22))
-        self.mar_threshold = float(config.get("mar_threshold", 0.60))
+        cfg = config or {}
 
-        # 连续帧阈值
-        self.consecutive_frames_eye = int(config.get("consecutive_frames_eye", 45))
-        self.consecutive_frames_mouth = int(config.get("consecutive_frames_mouth", 60))
+        # ====== 开关（口罩/特殊场景时可临时关闭） ======
+        self.enable_drowsy = bool(cfg.get("enable_drowsy", True))
+        self.enable_yawn = bool(cfg.get("enable_yawn", True))
+
+        # ====== 指标阈值 ======
+        self.ear_threshold = float(cfg.get("ear_threshold", 0.22))
+        self.mar_threshold = float(cfg.get("mar_threshold", 0.60))
+
+        # ====== FPS / 秒 -> 帧 的转换 ======
+        # 【TODO(参数待定)】如果你们后续测得真实 FPS，建议在 config.yaml 里填 internal.fps
+        self.fps = float(cfg.get("fps", 0.0) or 0.0)
+
+        # 连续帧阈值（fallback）
+        self.consecutive_frames_eye = int(cfg.get("consecutive_frames_eye", 45))
+        self.consecutive_frames_mouth = int(cfg.get("consecutive_frames_mouth", 60))
+
+        # 更直观的“持续秒数”配置（优先）
+        self.drowsy_duration_sec = float(cfg.get("drowsy_duration_sec", 1.5))
+        self.yawn_duration_sec = float(cfg.get("yawn_duration_sec", 2.0))
 
         # 为“眨眼”留一个更短的窗口（可选，不影响疲劳报警）
-        self.blink_max_frames = int(config.get("blink_max_frames", 8))
+        self.blink_max_frames = int(cfg.get("blink_max_frames", 8))
+        self.blink_max_sec = float(cfg.get("blink_max_sec", 0.3))
 
         # 平滑：指数滑动平均 (EMA)
-        self.ema_alpha = float(config.get("ema_alpha", 0.4))  # 越大越跟随当前帧
+        self.ema_alpha = float(cfg.get("ema_alpha", 0.4))  # 越大越跟随当前帧
+
+        # 把秒转换成帧阈值（如果 fps 未知则回退为 config 里的 frames）
+        self._eye_frames_th = self._sec_to_frames(self.drowsy_duration_sec, self.consecutive_frames_eye)
+        self._mouth_frames_th = self._sec_to_frames(self.yawn_duration_sec, self.consecutive_frames_mouth)
+        self._blink_frames_th = self._sec_to_frames(self.blink_max_sec, self.blink_max_frames)
 
         # 计数器
         self._eye_low_frames = 0
@@ -63,6 +87,11 @@ class FatigueAnalyzer:
         self._is_drowsy = False
         self._is_yawning = False
 
+    def _sec_to_frames(self, duration_sec: float, fallback_frames: int) -> int:
+        if self.fps and self.fps > 1.0 and duration_sec and duration_sec > 0:
+            return max(1, int(round(duration_sec * self.fps)))
+        return max(1, int(fallback_frames))
+
     def reset(self) -> None:
         self._eye_low_frames = 0
         self._mouth_high_frames = 0
@@ -78,12 +107,7 @@ class FatigueAnalyzer:
         return (1 - self.ema_alpha) * prev + self.ema_alpha * cur
 
     def update(self, ear: float, mar: float) -> FatigueState:
-        """
-        每帧调用一次。
-
-        返回 FatigueState：
-        - ear_ema/mar_ema 是平滑后的指标（建议用它做阈值判断更稳）
-        """
+        """每帧调用一次。"""
         ear = float(ear)
         mar = float(mar)
 
@@ -91,8 +115,8 @@ class FatigueAnalyzer:
         self._ear_ema = self._ema(self._ear_ema, ear)
         self._mar_ema = self._ema(self._mar_ema, mar)
 
-        ear_use = self._ear_ema
-        mar_use = self._mar_ema
+        ear_use = float(self._ear_ema)
+        mar_use = float(self._mar_ema)
 
         # 2) 连续帧计数
         blink = False
@@ -103,13 +127,16 @@ class FatigueAnalyzer:
             self._blink_segment += 1
         else:
             # 从“闭眼段”回到“睁眼”
-            if 1 <= self._blink_segment <= self.blink_max_frames:
+            if 1 <= self._blink_segment <= self._blink_frames_th:
                 blink = True
             self._blink_segment = 0
             self._eye_low_frames = 0  # 这里按“连续闭眼”定义疲劳
 
         # 疲劳判定
-        self._is_drowsy = self._eye_low_frames >= self.consecutive_frames_eye
+        if self.enable_drowsy:
+            self._is_drowsy = self._eye_low_frames >= self._eye_frames_th
+        else:
+            self._is_drowsy = False
 
         # --- 嘴巴（高于阈值：张嘴）---
         if mar_use > self.mar_threshold:
@@ -117,13 +144,16 @@ class FatigueAnalyzer:
         else:
             self._mouth_high_frames = 0
 
-        self._is_yawning = self._mouth_high_frames >= self.consecutive_frames_mouth
+        if self.enable_yawn:
+            self._is_yawning = self._mouth_high_frames >= self._mouth_frames_th
+        else:
+            self._is_yawning = False
 
         return FatigueState(
             ear=ear,
             mar=mar,
-            ear_ema=float(ear_use),
-            mar_ema=float(mar_use),
+            ear_ema=ear_use,
+            mar_ema=mar_use,
             blink=blink,
             is_drowsy=self._is_drowsy,
             is_yawning=self._is_yawning,

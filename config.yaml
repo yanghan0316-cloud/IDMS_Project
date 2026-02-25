@@ -4,16 +4,65 @@
 
 system:
   camera_id: 0                  # 默认摄像头索引
-  frame_width: 640              # 降低分辨率以提高FPS 
+  frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
-  queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性 
+  queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
 
 # --- 舱内监控 (Internal) ---
 internal:
-  ear_threshold: 0.22           # 眼睛纵横比阈值 (低于此值判定为闭眼) 
-  mar_threshold: 0.60           # 嘴部纵横比阈值 (高于此值判定为张嘴) 
-  consecutive_frames_eye: 45    # 闭眼持续帧数报警阈值 (约1.5秒) 
-  consecutive_frames_mouth: 60  # 哈欠持续帧数阈值 
+  # ===== 指标阈值（EAR/MAR） =====
+  ear_threshold: 0.22           # 眼睛纵横比阈值 (低于此值判定为闭眼)
+  mar_threshold: 0.60           # 嘴部纵横比阈值 (高于此值判定为张嘴)
+
+  # ===== FPS / 持续时间（秒）配置 =====
+  # 【TODO(参数待定)】建议先运行 demo_internal.py 看 FPS，再把 fps 填上。
+  # - fps=0 表示未知：系统会退化为使用下面的 *frames 阈值。
+  fps: 0
+
+  # 【TODO(参数待定)】以“秒”为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
+  drowsy_duration_sec: 1.5      # 闭眼持续超过多少秒算疲劳
+  yawn_duration_sec: 2.0        # 张嘴持续超过多少秒算哈欠
+  blink_max_sec: 0.30           # 小于该持续时间的闭眼段，算作“眨眼”
+
+  # ===== 备用的“帧数阈值”（fps 未知时用这个） =====
+  consecutive_frames_eye: 45    # 闭眼持续帧数报警阈值 (约1.5秒 @30FPS)
+  consecutive_frames_mouth: 60  # 哈欠持续帧数阈值 (约2.0秒 @30FPS)
+  blink_max_frames: 8           # 眨眼的最大帧数 (约0.27秒 @30FPS)
+
+  # ===== 平滑 =====
+  ema_alpha: 0.4                # EAR/MAR 的 EMA 平滑系数（越大越跟随当前帧）
+
+  # ===== MediaPipe FaceMesh 参数 =====
+  max_num_faces: 1
+  refine_landmarks: true
+  min_detection_confidence: 0.5
+  min_tracking_confidence: 0.5
+  return_landmarks: false       # 建议默认 false（省性能）；若要画网格点再开
+
+  # ===== 开关（口罩/眼镜/夜间等场景可能需要） =====
+  enable_drowsy: true
+  # 【TODO(参数待定)】若驾驶员戴口罩导致嘴部关键点不稳定，可先把 enable_yawn 设为 false
+  enable_yawn: true
+  enable_head_pose: true        # solvePnP 头部姿态
+  enable_attention: true        # 分心/点头逻辑（依赖头部姿态）
+
+  # ===== 分心 / 点头（头部姿态） =====
+  # 【TODO(参数待定)】这些阈值和持续时间需要你们实测后微调
+  # 分心：abs(yaw) 过阈值持续
+  distraction_yaw_threshold_deg: 30.0
+  distraction_yaw_release_deg: 20.0
+  distraction_duration_sec: 1.0
+  distraction_frames: 30
+
+  # 点头/低头：pitch 过阈值持续
+  # 【TODO(参数待定)】pitch 的正负号需要用 demo_internal.py 实测确认。
+  # 默认假设：低头时 pitch 变小（更负），所以阈值设为 -20。
+  nod_pitch_threshold_deg: -20.0
+  nod_pitch_release_deg: -10.0
+  nod_duration_sec: 1.0
+  nod_frames: 30
+
+  pose_ema_alpha: 0.35           # yaw/pitch 的 EMA 平滑系数
 
 # --- 舱外监控 (External) ---
 external:
@@ -40,6 +89,7 @@ external:
   safe_distance_time: 2.0         # 安全跟车时间 (秒, "两秒法则")
   match_pixel_base: 80            # 帧间匹配基础像素阈值
   cooldown_sec: 3.0               # 红色警报冷却时间 (秒)
+
 # --- 界面与报警 (UI) ---
 ui:
   show_landmarks: true          # 是否绘制面部网格

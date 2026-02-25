@@ -12,6 +12,10 @@ MediaPipe FaceMesh 的封装：输入一帧 BGR 图像，输出驾驶员状态�
 - is_drowsy: bool
 - is_yawning: bool
 
+新增（已完成）：
+- is_distracted: bool   # 分心（转头幅度过大且持续）
+- is_nodding: bool      # 点头/低头（pitch 过阈值且持续）
+
 扩展字段（方便后续迭代）：
 - yaw/pitch/roll: float (degrees)
 - blink: bool
@@ -36,6 +40,7 @@ except Exception as e:
 
 from .geometry import calculate_ear, calculate_mar, solve_head_pose, HeadPose
 from .fatigue_logic import FatigueAnalyzer
+from .attention_logic import AttentionAnalyzer
 
 
 Point2D = Tuple[int, int]
@@ -78,8 +83,14 @@ class FaceMeshDetector:
         # 头部姿态开关/阈值（可选）
         self.enable_head_pose = bool(self.cfg.get("enable_head_pose", True))
 
+        # 分心/点头逻辑开关（依赖头部姿态）
+        self.enable_attention = bool(self.cfg.get("enable_attention", True))
+
         # Fatigue state machine
         self.analyzer = FatigueAnalyzer(self.cfg)
+
+        # Attention (distraction / nodding) state machine
+        self.attention = AttentionAnalyzer(self.cfg)
 
         # MediaPipe FaceMesh
         self._mp_face_mesh = mp.solutions.face_mesh
@@ -124,6 +135,7 @@ class FaceMeshDetector:
         if not results.multi_face_landmarks:
             # 没检测到脸就重置计数器，避免“离开画面后仍报警”
             self.analyzer.reset()
+            self.attention.reset()
             return {
                 "ear": 0.0,
                 "mar": 0.0,
@@ -133,6 +145,8 @@ class FaceMeshDetector:
                 "yaw": 0.0,
                 "pitch": 0.0,
                 "roll": 0.0,
+                "is_distracted": False,
+                "is_nodding": False,
                 "has_face": False,
             }
 
@@ -157,6 +171,23 @@ class FaceMeshDetector:
             if pose is not None:
                 yaw, pitch, roll = pose.yaw, pose.pitch, pose.roll
 
+        # --- Attention (Distraction / Nodding) ---
+        is_distracted = False
+        is_nodding = False
+        distracted_frames = 0
+        nod_frames = 0
+        if self.enable_head_pose and self.enable_attention and pose is not None:
+            att = self.attention.update(yaw=yaw, pitch=pitch)
+            is_distracted = bool(att.is_distracted)
+            is_nodding = bool(att.is_nodding)
+            distracted_frames = int(att.distracted_frames)
+            nod_frames = int(att.nod_frames)
+            # 使用 EMA 后的角度更适合展示
+            yaw, pitch = float(att.yaw_ema), float(att.pitch_ema)
+        else:
+            # 没有姿态结果时，重置计数器，避免上一帧状态“粘住”
+            self.attention.reset()
+
         # --- 输出 ---
         out = {
             "ear": float(state.ear_ema),
@@ -169,6 +200,10 @@ class FaceMeshDetector:
             "yaw": float(yaw),
             "pitch": float(pitch),
             "roll": float(roll),
+            "is_distracted": bool(is_distracted),
+            "is_nodding": bool(is_nodding),
+            "distracted_frames": int(distracted_frames),
+            "nod_frames": int(nod_frames),
             "has_face": True,
         }
 
