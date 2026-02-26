@@ -3,8 +3,7 @@
 # ==========================================
 
 system:
-  camera_id_ext: 1      # 舱外摄像头 (比如 USB 摄像头 A)
-  camera_id_int: 0      # 舱内摄像头 (比如 USB 摄像头 B)
+  camera_id: 0                  # 默认摄像头索引
   frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
   queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
@@ -18,17 +17,31 @@ internal:
   # ===== FPS / 持续时间（秒）配置 =====
   # 【TODO(参数待定)】建议先运行 demo_internal.py 看 FPS，再把 fps 填上。
   # - fps=0 表示未知：系统会退化为使用下面的 *frames 阈值。
-  fps: 0
+  # 你已确认：FPS=30
+  fps: 30
 
   # 【TODO(参数待定)】以“秒”为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
-  drowsy_duration_sec: 1.5      # 闭眼持续超过多少秒算疲劳
+  # 你已确认：闭眼 2 秒触发
+  drowsy_duration_sec: 2.0      # 闭眼持续超过多少秒算疲劳
   yawn_duration_sec: 2.0        # 张嘴持续超过多少秒算哈欠
   blink_max_sec: 0.30           # 小于该持续时间的闭眼段，算作“眨眼”
 
   # ===== 备用的“帧数阈值”（fps 未知时用这个） =====
-  consecutive_frames_eye: 45    # 闭眼持续帧数报警阈值 (约1.5秒 @30FPS)
+  # 备用阈值也同步更新（fps>0 时实际上以秒为准，这里是兜底）
+  consecutive_frames_eye: 60    # 闭眼持续帧数报警阈值 (约2.0秒 @30FPS)
   consecutive_frames_mouth: 60  # 哈欠持续帧数阈值 (约2.0秒 @30FPS)
-  blink_max_frames: 8           # 眨眼的最大帧数 (约0.27秒 @30FPS)
+  blink_max_frames: 9           # 眨眼的最大帧数 (约0.30秒 @30FPS)
+
+  # ===== “哈欠频次”规则：5 分钟 3 次 =====
+  # 说明：
+  # - is_yawning 是“当前正在打哈欠”（嘴张开持续超过 yawn_duration_sec）。
+  # - is_yawn_frequent 是“近一段时间哈欠次数过多”（更贴近你们的疲劳判据）。
+  #
+  # 【TODO(口罩/眼镜待定)】如果口罩导致嘴部关键点不稳定，可能需要提高 mar_threshold，
+  # 或者先把 enable_yawn=false（临时关闭哈欠相关逻辑）。
+  enable_yawn_rate: true
+  yawn_rate_window_sec: 300     # 5 分钟 = 300 秒
+  yawn_rate_count_threshold: 3  # 5 分钟内 >=3 次触发
 
   # ===== 平滑 =====
   ema_alpha: 0.4                # EAR/MAR 的 EMA 平滑系数（越大越跟随当前帧）
@@ -69,9 +82,9 @@ internal:
 external:
   # --- YOLOv8 配置 ---
   model_path: "yolov8n.pt"        # 模型文件 (Nano版, 适合CPU)
-  conf_threshold: 0.65             # 置信度阈值
+  conf_threshold: 0.5             # 置信度阈值
   imgsz: 640                      # 推理输入尺寸 (降低可提速)
-  device: "cuda:0"                   # 'cpu' 或 'cuda:0'
+  device: "cpu"                   # 'cpu' 或 'cuda:0'
   roi_top_ratio: 0.35             # ROI 上边界 (0.35 = 只检测下方65%)
 
   # --- 距离估算 ---
@@ -86,26 +99,13 @@ external:
     7: 2.4                        # Truck
 
   # --- 碰撞预警 ---
-  ttc_threshold: 1.25              # TTC 红色警报阈值 (秒)
-  safe_distance_time: 1.75         # 安全跟车时间 (秒)
+  ttc_threshold: 1.5              # TTC 红色警报阈值 (秒)
+  safe_distance_time: 2.0         # 安全跟车时间 (秒, "两秒法则")
   match_pixel_base: 80            # 帧间匹配基础像素阈值
-  cooldown_sec: 0.0               # 红色警报冷却时间 (秒)
-
-  # --- 横向车道相关性 ---
-  lane_center_ratio: 0.5         # 自车道中心在画面中的水平位置 (0.5=正中)
-  lane_full_width_ratio: 0.25    # 自车道占画面宽度的比例 (0.30=中间30%为自车道)
-  lane_relevance_mode: "hard"    # 'soft'=软衰减(推荐) / 'hard'=硬切
-  lateral_speed_threshold: 120.0 # 横向速度阈值(像素/秒)，超过则降级
+  cooldown_sec: 3.0               # 红色警报冷却时间 (秒)
 
 # --- 界面与报警 (UI) ---
 ui:
   show_landmarks: true          # 是否绘制面部网格
   warning_color: [0, 0, 255]    # 红色 (BGR格式)
   normal_color: [0, 255, 0]     # 绿色 (BGR格式)
-
-  # --- 声音报警配置 ---
-  alert:
-    enable: true
-    consecutive_frames: 2       # 连续几帧 DANGER 才报警
-    cooldown_sec: 3.0           # 报警后冷却时间（秒），避免重复轰炸
-    volume: 0.7                 # 音量 0.0~1.0
