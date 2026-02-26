@@ -20,7 +20,7 @@
     python demo_external.py --mode camera
 
     # 模式 2: 用视频文件测试 (推荐 BDD100K 片段)
-    python demo_external.py --mode video --source E:\数据集\数据集\day-clear-3.mp4
+    python demo_external.py --mode video --source E:\数据集\数据集\night-clear-1.mp4
 
     # 模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
     python demo_external.py --mode sim
