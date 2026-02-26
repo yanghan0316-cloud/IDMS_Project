@@ -1,41 +1,41 @@
 #!/usr/bin/env python3
 """
 ==========================================================
-  ²ÕÍâ¸ĞÖªÄ£¿é Demo (External Module Test)
+  èˆ±å¤–æ„ŸçŸ¥æ¨¡å— Demo (External Module Test)
 ==========================================================
 
-¹¦ÄÜËµÃ÷:
-    ±¾½Å±¾ÊÇ IDMS ÏîÄ¿ÖĞ¡¸²ÕÍâ¸ĞÖª¡¹Èı´óÄ£¿éµÄ¶Ëµ½¶Ë²âÊÔ³ÌĞò:
-        1. YoloDetector   ¡ú ³µÁ¾¼ì²â
-        2. DistanceEstimator ¡ú µ¥Ä¿²â¾à
-        3. CollisionWarner  ¡ú Åö×²Ô¤¾¯ (TTC)
+åŠŸèƒ½è¯´æ˜:
+    æœ¬è„šæœ¬æ˜¯ IDMS é¡¹ç›®ä¸­ã€Œèˆ±å¤–æ„ŸçŸ¥ã€ä¸‰å¤§æ¨¡å—çš„ç«¯åˆ°ç«¯æµ‹è¯•ç¨‹åº:
+        1. YoloDetector   â†’ è½¦è¾†æ£€æµ‹
+        2. DistanceEstimator â†’ å•ç›®æµ‹è·
+        3. CollisionWarner  â†’ ç¢°æ’é¢„è­¦ (TTC)
 
-    Ö§³Ö 3 ÖÖÊäÈëÄ£Ê½:
-        --mode camera   Ê¹ÓÃ±¾»úÉãÏñÍ· (Ä¬ÈÏ)
-        --mode video    Ê¹ÓÃÖ¸¶¨ÊÓÆµÎÄ¼ş
-        --mode sim      Ê¹ÓÃÄ£ÄâÊı¾İ (ÎŞĞè GPU/Ä£ĞÍ£¬´¿Âß¼­²âÊÔ)
+    æ”¯æŒ 3 ç§è¾“å…¥æ¨¡å¼:
+        --mode camera   ä½¿ç”¨æœ¬æœºæ‘„åƒå¤´ (é»˜è®¤)
+        --mode video    ä½¿ç”¨æŒ‡å®šè§†é¢‘æ–‡ä»¶
+        --mode sim      ä½¿ç”¨æ¨¡æ‹Ÿæ•°æ® (æ— éœ€ GPU/æ¨¡å‹ï¼Œçº¯é€»è¾‘æµ‹è¯•)
 
-Ê¹ÓÃ·½·¨:
-    # Ä£Ê½ 1: ÉãÏñÍ·ÊµÊ±²âÊÔ
+ä½¿ç”¨æ–¹æ³•:
+    # æ¨¡å¼ 1: æ‘„åƒå¤´å®æ—¶æµ‹è¯•
     python demo_external.py --mode camera
 
-    # Ä£Ê½ 2: ÓÃÊÓÆµÎÄ¼ş²âÊÔ (ÍÆ¼ö BDD100K Æ¬¶Î)
-    python demo_external.py --mode video --source data/videos/highway.mp4
+    # æ¨¡å¼ 2: ç”¨è§†é¢‘æ–‡ä»¶æµ‹è¯• (æ¨è BDD100K ç‰‡æ®µ)
+    python demo_external.py --mode video --source E:\æ•°æ®é›†\æ•°æ®é›†\day-clear-1.mp4
 
-    # Ä£Ê½ 3: ´¿Ä£Äâ²âÊÔ (ÎŞĞèÈÎºÎÓ²¼ş/Ä£ĞÍ£¬ÑéÖ¤Âß¼­ÕıÈ·ĞÔ)
+    # æ¨¡å¼ 3: çº¯æ¨¡æ‹Ÿæµ‹è¯• (æ— éœ€ä»»ä½•ç¡¬ä»¶/æ¨¡å‹ï¼ŒéªŒè¯é€»è¾‘æ­£ç¡®æ€§)
     python demo_external.py --mode sim
 
-    # ×Ô¶¨Òå²ÎÊıÊ¾Àı
+    # è‡ªå®šä¹‰å‚æ•°ç¤ºä¾‹
     python demo_external.py --mode video --source test.mp4 --focal 700 --conf 0.4
 
-¿ì½İ¼ü:
-    q / ESC  ÍË³ö
-    s        ½ØÍ¼±£´æµ½µ±Ç°Ä¿Â¼
-    p        ÔİÍ£/¼ÌĞø
-    +/-      µ÷ÕûÖÃĞÅ¶ÈãĞÖµ (¡À0.05)
+å¿«æ·é”®:
+    q / ESC  é€€å‡º
+    s        æˆªå›¾ä¿å­˜åˆ°å½“å‰ç›®å½•
+    p        æš‚åœ/ç»§ç»­
+    +/-      è°ƒæ•´ç½®ä¿¡åº¦é˜ˆå€¼ (Â±0.05)
 
-×÷Õß: IDMS ÏîÄ¿×é
-ÈÕÆÚ: 2025
+ä½œè€…: IDMS é¡¹ç›®ç»„
+æ—¥æœŸ: 2025
 ==========================================================
 """
 
@@ -45,64 +45,90 @@ import time
 import math
 import argparse
 import numpy as np
+import yaml
 
-# ===================== ³¢ÊÔµ¼Èë OpenCV =====================
+# ===================== å°è¯•å¯¼å…¥ OpenCV =====================
 try:
     import cv2
 except ImportError:
-    print("[´íÎó] Î´°²×° opencv-python£¬ÇëÔËĞĞ: pip install opencv-python")
+    print("[é”™è¯¯] æœªå®‰è£… opencv-pythonï¼Œè¯·è¿è¡Œ: pip install opencv-python")
     sys.exit(1)
 
 
-# ==================== ÅäÖÃ & ²ÎÊı½âÎö ====================
+# ==================== é…ç½® & å‚æ•°è§£æ ====================
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="IDMS ²ÕÍâ¸ĞÖªÄ£¿é Demo",
+        description="IDMS èˆ±å¤–æ„ŸçŸ¥æ¨¡å— Demo",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--mode", choices=["camera", "video", "sim"],
         default="sim",
-        help="ÊäÈëÄ£Ê½: camera=ÉãÏñÍ·, video=ÊÓÆµÎÄ¼ş, sim=Ä£ÄâÊı¾İ (Ä¬ÈÏ sim)"
+        help="è¾“å…¥æ¨¡å¼: camera=æ‘„åƒå¤´, video=è§†é¢‘æ–‡ä»¶, sim=æ¨¡æ‹Ÿæ•°æ® (é»˜è®¤ sim)"
     )
     parser.add_argument(
         "--source", type=str, default="0",
-        help="ÊÓÆµÎÄ¼şÂ·¾¶»òÉãÏñÍ·Ë÷Òı (Ä¬ÈÏ 0)"
+        help="è§†é¢‘æ–‡ä»¶è·¯å¾„æˆ–æ‘„åƒå¤´ç´¢å¼• (é»˜è®¤ 0)"
     )
-    parser.add_argument("--focal", type=float, default=600.0, help="½¹¾à³£Á¿ F (Ä¬ÈÏ 600)")
-    parser.add_argument("--conf", type=float, default=0.5, help="YOLO ÖÃĞÅ¶ÈãĞÖµ (Ä¬ÈÏ 0.5)")
-    parser.add_argument("--model", type=str, default="yolov8n.pt", help="YOLO Ä£ĞÍÂ·¾¶")
-    parser.add_argument("--imgsz", type=int, default=640, help="YOLO ÍÆÀí³ß´ç")
-    parser.add_argument("--no-display", action="store_true", help="ÎŞÍ·Ä£Ê½(²»ÏÔÊ¾´°¿Ú)")
+    parser.add_argument("--focal", type=float, default=600.0, help="ç„¦è·å¸¸é‡ F (é»˜è®¤ 600)")
+    parser.add_argument("--conf", type=float, default=0.5, help="YOLO ç½®ä¿¡åº¦é˜ˆå€¼ (é»˜è®¤ 0.5)")
+    parser.add_argument("--model", type=str, default="yolov8n.pt", help="YOLO æ¨¡å‹è·¯å¾„")
+    parser.add_argument("--imgsz", type=int, default=640, help="YOLO æ¨ç†å°ºå¯¸")
+    parser.add_argument("--no-display", action="store_true", help="æ— å¤´æ¨¡å¼(ä¸æ˜¾ç¤ºçª—å£)")
     return parser.parse_args()
 
 
+def load_yaml_config(config_path="config.yaml"):
+    """å°è¯•åŠ è½½å…¨å±€é…ç½®æ–‡ä»¶"""
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            full_config = yaml.safe_load(f)
+            return full_config.get('external', {})
+    except Exception as e:
+        print(f"[è­¦å‘Š] æ— æ³•è¯»å– {config_path} ({e})ï¼Œå°†ä½¿ç”¨é»˜è®¤å†…ç½®å‚æ•°ã€‚")
+        return {}
+
 def build_config(args):
-    """´ÓÃüÁîĞĞ²ÎÊı¹¹½¨ config ×Öµä"""
-    return {
-        'model_path': args.model,
-        'conf_threshold': args.conf,
-        'imgsz': args.imgsz,
-        'device': 'cpu',
-        'roi_top_ratio': 0.35,
-        'focal_length': args.focal,
-        'known_width': 1.8,
-        'max_distance': 100.0,
-        'min_distance': 0.5,
-        'smoothing': 0.3,
-        'ttc_threshold': 1.5,
-        'safe_distance_time': 2.0,
-    }
+    """ä» yaml å’Œå‘½ä»¤è¡Œå‚æ•°æ„å»º config å­—å…¸"""
+    # 1. ä¼˜å…ˆä» config.yaml ä¸­è¯»å–å¤–éƒ¨æ¨¡å—çš„é…ç½®
+    config = load_yaml_config()
+
+    # 2. å¦‚æœå‘½ä»¤è¡Œä¼ å…¥äº†éé»˜è®¤å‚æ•°ï¼Œåˆ™è¦†ç›– yaml ä¸­çš„è®¾ç½®
+    # (è¿™é‡Œåˆ©ç”¨ args çš„é»˜è®¤å€¼æ¥åˆ¤æ–­ç”¨æˆ·æ˜¯å¦åœ¨å‘½ä»¤è¡Œåšäº†æŒ‡å®š)
+    if args.model != "yolov8n.pt" or 'model_path' not in config:
+        config['model_path'] = args.model
+    if args.conf != 0.5 or 'conf_threshold' not in config:
+        config['conf_threshold'] = args.conf
+    if args.imgsz != 640 or 'imgsz' not in config:
+        config['imgsz'] = args.imgsz
+    if args.focal != 600.0 or 'focal_length' not in config:
+        config['focal_length'] = args.focal
+
+    # 3. è¡¥å……ä¸€äº›å¿…é¡»çš„é»˜è®¤å€¼ (å…œåº•ï¼Œé˜²æ­¢ yaml ä¸­è¢«è¯¯åˆ )
+    config.setdefault('device', 'cpu')
+    config.setdefault('roi_top_ratio', 0.35)
+    config.setdefault('known_width', 1.8)
+    config.setdefault('max_distance', 100.0)
+    config.setdefault('min_distance', 0.5)
+    config.setdefault('smoothing', 0.3)
+    config.setdefault('ttc_threshold', 1.5)
+    config.setdefault('safe_distance_time', 2.0)
+    
+    # è¡¥å……åˆšæ‰æ–°å¢çš„ç¢°æ’é¢„è­¦å‚æ•°å…œåº•
+    config.setdefault('match_pixel_base', 80)
+    config.setdefault('cooldown_sec', 3.0)
+
+    return config
 
 
-# ==================== ¿ÉÊÓ»¯äÖÈ¾Æ÷ ====================
+# ==================== å¯è§†åŒ–æ¸²æŸ“å™¨ ====================
 
-# Ô¤¶¨ÒåÑÕÉ« (BGR)
-COLOR_SAFE = (0, 200, 0)       # ÂÌÉ«
-COLOR_CAUTION = (0, 200, 255)  # »ÆÉ«
-COLOR_DANGER = (0, 0, 255)     # ºìÉ«
-COLOR_TEXT_BG = (30, 30, 30)   # Éî»Ò±³¾°
+# é¢„å®šä¹‰é¢œè‰² (BGR)
+COLOR_SAFE = (0, 200, 0)       # ç»¿è‰²
+COLOR_CAUTION = (0, 200, 255)  # é»„è‰²
+COLOR_DANGER = (0, 0, 255)     # çº¢è‰²
+COLOR_TEXT_BG = (30, 30, 30)   # æ·±ç°èƒŒæ™¯
 COLOR_WHITE = (255, 255, 255)
 COLOR_CYAN = (255, 255, 0)
 
@@ -114,17 +140,17 @@ LEVEL_COLORS = {
 
 
 def draw_detections(frame, detections):
-    """ÔÚÖ¡ÉÏ»æÖÆ¼ì²â¿ò¡¢¾àÀë¡¢TTC¡¢·çÏÕµÈ¼¶"""
+    """åœ¨å¸§ä¸Šç»˜åˆ¶æ£€æµ‹æ¡†ã€è·ç¦»ã€TTCã€é£é™©ç­‰çº§"""
     for obj in detections:
         x1, y1, x2, y2 = obj['box']
         level = obj.get('warning_level', 0)
         color = LEVEL_COLORS.get(level, COLOR_SAFE)
 
-        # --- ±ß½ç¿ò ---
+        # --- è¾¹ç•Œæ¡† ---
         thickness = 2 if level < 2 else 3
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
-        # --- ĞÅÏ¢±êÇ© ---
+        # --- ä¿¡æ¯æ ‡ç­¾ ---
         dist = obj.get('distance', -1)
         ttc = obj.get('ttc', 99)
         rel_speed = obj.get('rel_speed', 0)
@@ -132,21 +158,21 @@ def draw_detections(frame, detections):
         conf = obj.get('conf', 0)
         warning_text = obj.get('warning_text', 'SAFE')
 
-        # µÚÒ»ĞĞ: Àà±ğ + ÖÃĞÅ¶È
+        # ç¬¬ä¸€è¡Œ: ç±»åˆ« + ç½®ä¿¡åº¦
         line1 = f"{cls_name} {conf:.0%}"
-        # µÚ¶şĞĞ: ¾àÀë
+        # ç¬¬äºŒè¡Œ: è·ç¦»
         line2 = f"Dist: {dist:.1f}m" if dist > 0 else "Dist: N/A"
-        # µÚÈıĞĞ: TTC + Ïà¶ÔËÙ¶È
+        # ç¬¬ä¸‰è¡Œ: TTC + ç›¸å¯¹é€Ÿåº¦
         if ttc < 90:
             line3 = f"TTC: {ttc:.1f}s  V: {rel_speed:+.1f}m/s"
         else:
             line3 = f"V: {rel_speed:+.1f}m/s"
 
-        # »æÖÆ±êÇ©±³¾° + ÎÄ×Ö
+        # ç»˜åˆ¶æ ‡ç­¾èƒŒæ™¯ + æ–‡å­—
         labels = [line1, line2, line3]
         _draw_label_block(frame, x1, y1 - 5, labels, color)
 
-        # --- Î£ÏÕµÈ¼¶½Ç±ê ---
+        # --- å±é™©ç­‰çº§è§’æ ‡ ---
         if level >= 1:
             badge_text = f" {warning_text} "
             (tw, th), _ = cv2.getTextSize(badge_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
@@ -160,14 +186,14 @@ def draw_detections(frame, detections):
 
 
 def _draw_label_block(frame, x, y, lines, color):
-    """»æÖÆ¶àĞĞ±êÇ©£¨´ø°ëÍ¸Ã÷±³¾°£©"""
+    """ç»˜åˆ¶å¤šè¡Œæ ‡ç­¾ï¼ˆå¸¦åŠé€æ˜èƒŒæ™¯ï¼‰"""
     font = cv2.FONT_HERSHEY_SIMPLEX
     scale = 0.45
     thick = 1
     line_h = 18
     padding = 4
 
-    # ¼ÆËã×î´ó¿í¶È
+    # è®¡ç®—æœ€å¤§å®½åº¦
     max_w = 0
     for line in lines:
         (tw, _), _ = cv2.getTextSize(line, font, scale, thick)
@@ -176,21 +202,21 @@ def _draw_label_block(frame, x, y, lines, color):
     total_h = line_h * len(lines) + padding * 2
     total_w = max_w + padding * 2
 
-    # ±³¾°Î»ÖÃ (ÔÚ¿òÉÏ·½)
+    # èƒŒæ™¯ä½ç½® (åœ¨æ¡†ä¸Šæ–¹)
     bg_y1 = y - total_h
     bg_y2 = y
     bg_x1 = x
     bg_x2 = x + total_w
 
-    # °ëÍ¸Ã÷±³¾°
+    # åŠé€æ˜èƒŒæ™¯
     overlay = frame.copy()
     cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), COLOR_TEXT_BG, -1)
     cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
 
-    # ×ó²àÉ«Ìõ
+    # å·¦ä¾§è‰²æ¡
     cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x1 + 3, bg_y2), color, -1)
 
-    # ÎÄ×Ö
+    # æ–‡å­—
     for i, line in enumerate(lines):
         ty = bg_y1 + padding + line_h * (i + 1) - 3
         cv2.putText(frame, line, (bg_x1 + padding + 4, ty),
@@ -198,10 +224,10 @@ def _draw_label_block(frame, x, y, lines, color):
 
 
 def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
-    """»æÖÆ¶¥²¿ÒÇ±í°å HUD"""
+    """ç»˜åˆ¶é¡¶éƒ¨ä»ªè¡¨æ¿ HUD"""
     h, w = frame.shape[:2]
 
-    # °ëÍ¸Ã÷¶¥À¸
+    # åŠé€æ˜é¡¶æ 
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, 50), (20, 20, 20), -1)
     cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
@@ -211,15 +237,15 @@ def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
     cv2.putText(frame, f"FPS: {fps:.1f}", (10, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, fps_color, 2)
 
-    # ¼ì²âÊıÁ¿
+    # æ£€æµ‹æ•°é‡
     cv2.putText(frame, f"Vehicles: {det_count}", (160, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_CYAN, 2)
 
-    # ÖÃĞÅ¶ÈãĞÖµ
+    # ç½®ä¿¡åº¦é˜ˆå€¼
     cv2.putText(frame, f"Conf: {conf_threshold:.2f}", (360, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, COLOR_WHITE, 1)
 
-    # È«¾Ö·çÏÕ×´Ì¬
+    # å…¨å±€é£é™©çŠ¶æ€
     if max_danger_level == 2:
         status = "!! COLLISION WARNING !!"
         status_color = COLOR_DANGER
@@ -234,9 +260,9 @@ def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
     cv2.putText(frame, status, (w - tw - 15, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
 
-    # Î£ÏÕÊ±È«ÆÁºìÉ«±ß¿òÉÁË¸
+    # å±é™©æ—¶å…¨å±çº¢è‰²è¾¹æ¡†é—ªçƒ
     if max_danger_level == 2:
-        # ÓÃÊ±¼ä¿ØÖÆÉÁË¸
+        # ç”¨æ—¶é—´æ§åˆ¶é—ªçƒ
         if int(time.time() * 4) % 2 == 0:
             cv2.rectangle(frame, (0, 0), (w - 1, h - 1), COLOR_DANGER, 4)
 
@@ -244,7 +270,7 @@ def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
 
 
 def draw_help(frame):
-    """»æÖÆ¿ì½İ¼üÌáÊ¾"""
+    """ç»˜åˆ¶å¿«æ·é”®æç¤º"""
     h, w = frame.shape[:2]
     help_lines = [
         "[Q/ESC] Quit  [S] Screenshot  [P] Pause  [+/-] Conf threshold",
@@ -255,18 +281,18 @@ def draw_help(frame):
     return frame
 
 
-# ==================== Ä£ÄâÊı¾İÉú³ÉÆ÷ ====================
+# ==================== æ¨¡æ‹Ÿæ•°æ®ç”Ÿæˆå™¨ ====================
 
 class SimulatedScenario:
     """
-    Ä£Äâ¼İÊ»³¡¾°Éú³ÉÆ÷ ¡ª¡ª ÎŞĞè YOLO Ä£ĞÍ¼´¿É²âÊÔ¾àÀë¹ÀËãºÍÅö×²Ô¤¾¯Âß¼­
+    æ¨¡æ‹Ÿé©¾é©¶åœºæ™¯ç”Ÿæˆå™¨ â€”â€” æ— éœ€ YOLO æ¨¡å‹å³å¯æµ‹è¯•è·ç¦»ä¼°ç®—å’Œç¢°æ’é¢„è­¦é€»è¾‘
 
-    Ä£Äâ³¡¾°:
-        ³¡¾° 1 (0~5s):   Ç°·½Ò»Á¾³µÔÈËÙĞĞÊ»£¬°²È«¾àÀë ¡ú ÂÌÉ«
-        ³¡¾° 2 (5~10s):  Ç°³µ¼õËÙ£¬ÎÒ³µ¿¿½ü ¡ú »ÆÉ«
-        ³¡¾° 3 (10~14s): ¼±ËÙ½Ó½ü£¬TTC < 1.5s ¡ú ºìÉ«
-        ³¡¾° 4 (14~18s): Ç°³µ¼ÓËÙÀ­¿ª¾àÀë ¡ú »Ö¸´ÂÌÉ«
-        ³¡¾° 5 (18~22s): ÓÒ²à³µµÀ³öÏÖÄ¦ÍĞ³µ£¬»ºÂı¿¿½ü ¡ú »ÆÉ«
+    æ¨¡æ‹Ÿåœºæ™¯:
+        åœºæ™¯ 1 (0~5s):   å‰æ–¹ä¸€è¾†è½¦åŒ€é€Ÿè¡Œé©¶ï¼Œå®‰å…¨è·ç¦» â†’ ç»¿è‰²
+        åœºæ™¯ 2 (5~10s):  å‰è½¦å‡é€Ÿï¼Œæˆ‘è½¦é è¿‘ â†’ é»„è‰²
+        åœºæ™¯ 3 (10~14s): æ€¥é€Ÿæ¥è¿‘ï¼ŒTTC < 1.5s â†’ çº¢è‰²
+        åœºæ™¯ 4 (14~18s): å‰è½¦åŠ é€Ÿæ‹‰å¼€è·ç¦» â†’ æ¢å¤ç»¿è‰²
+        åœºæ™¯ 5 (18~22s): å³ä¾§è½¦é“å‡ºç°æ‘©æ‰˜è½¦ï¼Œç¼“æ…¢é è¿‘ â†’ é»„è‰²
     """
 
     def __init__(self, frame_w=960, frame_h=540):
@@ -276,36 +302,36 @@ class SimulatedScenario:
 
     def generate(self):
         """
-        ·µ»Ø:
-            frame (ndarray): Ä£Äâ»­Ãæ
-            detections (list[dict]): Ä£ÄâµÄ¼ì²â½á¹û£¨ÒÑ°üº¬ box, class_id µÈ£©
+        è¿”å›:
+            frame (ndarray): æ¨¡æ‹Ÿç”»é¢
+            detections (list[dict]): æ¨¡æ‹Ÿçš„æ£€æµ‹ç»“æœï¼ˆå·²åŒ…å« box, class_id ç­‰ï¼‰
         """
         t = time.time() - self.start_time
-        # Ñ­»·³¡¾° (22ÃëÒ»¸öÖÜÆÚ)
+        # å¾ªç¯åœºæ™¯ (22ç§’ä¸€ä¸ªå‘¨æœŸ)
         t = t % 22.0
 
         frame = self._draw_road()
         detections = []
 
-        # === ³¡¾° 1~4: Ç°·½Ö÷³µ ===
+        # === åœºæ™¯ 1~4: å‰æ–¹ä¸»è½¦ ===
         if t < 5:
-            # °²È«¸ú³µ
+            # å®‰å…¨è·Ÿè½¦
             dist = 25.0
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 10:
-            # Ç°³µ¼õËÙ£¬¾àÀëËõ¶Ì
+            # å‰è½¦å‡é€Ÿï¼Œè·ç¦»ç¼©çŸ­
             progress = (t - 5) / 5.0
-            dist = 25.0 - progress * 15.0  # 25m ¡ú 10m
+            dist = 25.0 - progress * 15.0  # 25m â†’ 10m
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 14:
-            # ¼±ËÙ½Ó½ü
+            # æ€¥é€Ÿæ¥è¿‘
             progress = (t - 10) / 4.0
-            dist = 10.0 - progress * 8.0  # 10m ¡ú 2m
+            dist = 10.0 - progress * 8.0  # 10m â†’ 2m
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 18:
-            # Ç°³µ¼ÓËÙÀë¿ª
+            # å‰è½¦åŠ é€Ÿç¦»å¼€
             progress = (t - 14) / 4.0
-            dist = 2.0 + progress * 28.0  # 2m ¡ú 30m
+            dist = 2.0 + progress * 28.0  # 2m â†’ 30m
             box = self._dist_to_box(dist, cx_ratio=0.5)
         else:
             dist = 30.0
@@ -319,10 +345,10 @@ class SimulatedScenario:
                 'conf': 0.92,
                 'distance': round(dist, 2),
             })
-            # ÔÚ»­ÃæÉÏ»æÖÆÄ£Äâ³µÁ¾
+            # åœ¨ç”»é¢ä¸Šç»˜åˆ¶æ¨¡æ‹Ÿè½¦è¾†
             self._draw_vehicle(frame, box, 'car')
 
-        # === ³¡¾° 5: ÓÒ²àÄ¦ÍĞ³µ (18s ºó³öÏÖ) ===
+        # === åœºæ™¯ 5: å³ä¾§æ‘©æ‰˜è½¦ (18s åå‡ºç°) ===
         if t >= 18:
             moto_progress = (t - 18) / 4.0
             moto_dist = 20.0 - moto_progress * 10.0
@@ -337,32 +363,32 @@ class SimulatedScenario:
                 })
                 self._draw_vehicle(frame, moto_box, 'motorcycle')
 
-        # ³¡¾°ÌáÊ¾ÎÄ×Ö
+        # åœºæ™¯æç¤ºæ–‡å­—
         scenario_text = self._get_scenario_text(t)
         cv2.putText(frame, scenario_text, (10, self.h - 45),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
 
-        # Ê±¼äÖá½ø¶ÈÌõ
+        # æ—¶é—´è½´è¿›åº¦æ¡
         self._draw_timeline(frame, t)
 
         return frame, detections
 
     def _dist_to_box(self, distance, cx_ratio=0.5, w_scale=1.0):
         """
-        ½«Ä£Äâ¾àÀë×ª»¯ÎªÏñËØ¼¶ bounding box
-        Ô½½ü ¡ú box Ô½´ó (Ä£ÄâÍ¸ÊÓĞ§¹û)
+        å°†æ¨¡æ‹Ÿè·ç¦»è½¬åŒ–ä¸ºåƒç´ çº§ bounding box
+        è¶Šè¿‘ â†’ box è¶Šå¤§ (æ¨¡æ‹Ÿé€è§†æ•ˆæœ)
         """
         if distance < 0.5:
             distance = 0.5
-        # Ä£Äâ½¹¾àĞ§Ó¦: ÏñËØ¿í¶È ¡Ø 1/¾àÀë
+        # æ¨¡æ‹Ÿç„¦è·æ•ˆåº”: åƒç´ å®½åº¦ âˆ 1/è·ç¦»
         pixel_w = int((1.8 * 600 / distance) * w_scale)
-        pixel_h = int(pixel_w * 0.65)  # ³µÁ¾¿í¸ß±ÈÔ¼ 1:0.65
+        pixel_h = int(pixel_w * 0.65)  # è½¦è¾†å®½é«˜æ¯”çº¦ 1:0.65
 
         cx = int(self.w * cx_ratio)
-        # Ô¶´¦µÄ³µÔÚ»­ÃæÆ«ÉÏ(½Ó½üÏûÊ§µã)£¬½ü´¦ÔÚ»­ÃæÖĞÏÂ
+        # è¿œå¤„çš„è½¦åœ¨ç”»é¢åä¸Š(æ¥è¿‘æ¶ˆå¤±ç‚¹)ï¼Œè¿‘å¤„åœ¨ç”»é¢ä¸­ä¸‹
         vanish_y = int(self.h * 0.42)
         bottom_y = int(self.h * 0.85)
-        t = min(1.0, 5.0 / distance)  # ¾àÀëÔ½½ü t Ô½´ó
+        t = min(1.0, 5.0 / distance)  # è·ç¦»è¶Šè¿‘ t è¶Šå¤§
         cy = int(vanish_y + (bottom_y - vanish_y) * t)
 
         x1 = cx - pixel_w // 2
@@ -370,7 +396,7 @@ class SimulatedScenario:
         x2 = cx + pixel_w // 2
         y2 = cy + pixel_h // 2
 
-        # ±ß½ç²Ã¼ô
+        # è¾¹ç•Œè£å‰ª
         x1 = max(0, x1)
         y1 = max(0, y1)
         x2 = min(self.w - 1, x2)
@@ -381,21 +407,21 @@ class SimulatedScenario:
         return [x1, y1, x2, y2]
 
     def _draw_road(self):
-        """»æÖÆ¼òÒ×Ä£ÄâµÀÂ·±³¾°"""
+        """ç»˜åˆ¶ç®€æ˜“æ¨¡æ‹Ÿé“è·¯èƒŒæ™¯"""
         frame = np.zeros((self.h, self.w, 3), dtype=np.uint8)
 
-        # Ìì¿Õ½¥±ä (ÉîÀ¶¡úÇ³À¶)
+        # å¤©ç©ºæ¸å˜ (æ·±è“â†’æµ…è“)
         for y in range(int(self.h * 0.42)):
             ratio = y / (self.h * 0.42)
             b = int(60 + 80 * ratio)
             g = int(40 + 50 * ratio)
             frame[y, :] = (b, g, 20)
 
-        # Â·Ãæ (Éî»Ò)
+        # è·¯é¢ (æ·±ç°)
         road_top = int(self.h * 0.42)
         frame[road_top:, :] = (50, 50, 55)
 
-        # ³µµÀÏß (°×É«ĞéÏß)
+        # è½¦é“çº¿ (ç™½è‰²è™šçº¿)
         vanish_x = self.w // 2
         vanish_y = road_top
 
@@ -412,18 +438,18 @@ class SimulatedScenario:
         return frame
 
     def _draw_vehicle(self, frame, box, label):
-        """ÔÚÄ£Äâ»­ÃæÖĞ»æÖÆ¼ò»¯³µÁ¾ĞÎ×´"""
+        """åœ¨æ¨¡æ‹Ÿç”»é¢ä¸­ç»˜åˆ¶ç®€åŒ–è½¦è¾†å½¢çŠ¶"""
         x1, y1, x2, y2 = box
-        # ³µÉí (ÉîÉ«¾ØĞÎ)
+        # è½¦èº« (æ·±è‰²çŸ©å½¢)
         body_color = (100, 80, 60) if label == 'car' else (80, 100, 120)
         cv2.rectangle(frame, (x1, y1), (x2, y2), body_color, -1)
-        # ³µ´° (Ç³É«)
+        # è½¦çª— (æµ…è‰²)
         win_y1 = y1 + (y2 - y1) // 4
         win_y2 = y1 + (y2 - y1) * 2 // 4
         win_x1 = x1 + (x2 - x1) // 6
         win_x2 = x2 - (x2 - x1) // 6
         cv2.rectangle(frame, (win_x1, win_y1), (win_x2, win_y2), (140, 140, 160), -1)
-        # Î²µÆ
+        # å°¾ç¯
         light_w = max(3, (x2 - x1) // 8)
         light_h = max(2, (y2 - y1) // 8)
         cv2.rectangle(frame, (x1, y2 - light_h), (x1 + light_w, y2), (0, 0, 200), -1)
@@ -442,15 +468,15 @@ class SimulatedScenario:
             return f"Scene 5/5: Motorcycle appearing on right [{t:.1f}s]"
 
     def _draw_timeline(self, frame, t):
-        """µ×²¿Ê±¼äÖá½ø¶ÈÌõ"""
+        """åº•éƒ¨æ—¶é—´è½´è¿›åº¦æ¡"""
         bar_y = self.h - 25
         bar_h = 8
         total = 22.0
 
-        # ±³¾°
+        # èƒŒæ™¯
         cv2.rectangle(frame, (10, bar_y), (self.w - 10, bar_y + bar_h), (40, 40, 40), -1)
 
-        # ³¡¾°·Ö¶ÎÑÕÉ«
+        # åœºæ™¯åˆ†æ®µé¢œè‰²
         segments = [
             (0, 5, COLOR_SAFE),
             (5, 10, COLOR_CAUTION),
@@ -464,17 +490,17 @@ class SimulatedScenario:
             ex = 10 + int(s_end / total * bar_w)
             cv2.rectangle(frame, (sx, bar_y), (ex, bar_y + bar_h), color, -1)
 
-        # µ±Ç°Î»ÖÃÖ¸Ê¾Æ÷
+        # å½“å‰ä½ç½®æŒ‡ç¤ºå™¨
         cur_x = 10 + int(t / total * bar_w)
         cv2.circle(frame, (cur_x, bar_y + bar_h // 2), 6, COLOR_WHITE, -1)
         cv2.circle(frame, (cur_x, bar_y + bar_h // 2), 6, (0, 0, 0), 1)
 
 
-# ==================== Pipeline ¹ÜÏß ====================
+# ==================== Pipeline ç®¡çº¿ ====================
 
 class ExternalPipeline:
     """
-    ½« YoloDetector ¡ú DistanceEstimator ¡ú CollisionWarner ´®ÁªÎªÒ»Ìõ´¦Àí¹ÜÏß
+    å°† YoloDetector â†’ DistanceEstimator â†’ CollisionWarner ä¸²è”ä¸ºä¸€æ¡å¤„ç†ç®¡çº¿
     """
 
     def __init__(self, config, use_yolo=True):
@@ -492,25 +518,25 @@ class ExternalPipeline:
     def run(self, frame, detections=None):
         """
         Args:
-            frame: ÊäÈëÖ¡ (µ± use_yolo=True Ê±Ê¹ÓÃ)
-            detections: Íâ²¿Ìá¹©µÄ¼ì²â½á¹û (µ± use_yolo=False Ê±Ê¹ÓÃ)
+            frame: è¾“å…¥å¸§ (å½“ use_yolo=True æ—¶ä½¿ç”¨)
+            detections: å¤–éƒ¨æä¾›çš„æ£€æµ‹ç»“æœ (å½“ use_yolo=False æ—¶ä½¿ç”¨)
 
         Returns:
-            detections: ÍêÕûµÄ¼ì²â½á¹û (º¬ distance, ttc, warning_level µÈ)
+            detections: å®Œæ•´çš„æ£€æµ‹ç»“æœ (å« distance, ttc, warning_level ç­‰)
         """
         if self.use_yolo:
             detections = self.detector.process(frame)
             detections = self.distance_est.calculate(detections)
         else:
-            # Ä£ÄâÄ£Ê½: distance ÒÑÓÉ SimulatedScenario Ìá¹©£¬ÎŞĞèÔÙËã
-            # µ«ÈÔÈ»×ßÒ»±é calculate ÒÔÑéÖ¤Ç¯Î»/Æ½»¬Âß¼­
+            # æ¨¡æ‹Ÿæ¨¡å¼: distance å·²ç”± SimulatedScenario æä¾›ï¼Œæ— éœ€å†ç®—
+            # ä½†ä»ç„¶èµ°ä¸€é calculate ä»¥éªŒè¯é’³ä½/å¹³æ»‘é€»è¾‘
             pass
 
         detections = self.collision_warn.process(detections)
         return detections
 
 
-# ==================== ĞÔÄÜÍ³¼Æ ====================
+# ==================== æ€§èƒ½ç»Ÿè®¡ ====================
 
 class FPSCounter:
     def __init__(self, window=30):
@@ -532,66 +558,66 @@ class FPSCounter:
         return (len(self.timestamps) - 1) / dt
 
 
-# ==================== Ö÷º¯Êı ====================
+# ==================== ä¸»å‡½æ•° ====================
 
 def main():
     args = parse_args()
     config = build_config(args)
 
     print("=" * 60)
-    print("  IDMS ²ÕÍâ¸ĞÖªÄ£¿é Demo")
+    print("  IDMS èˆ±å¤–æ„ŸçŸ¥æ¨¡å— Demo")
     print("=" * 60)
-    print(f"  Ä£Ê½: {args.mode}")
-    print(f"  ½¹¾à: {config['focal_length']}")
-    print(f"  ÖÃĞÅ¶È: {config['conf_threshold']}")
-    print(f"  TTC ãĞÖµ: {config['ttc_threshold']}s")
+    print(f"  æ¨¡å¼: {args.mode}")
+    print(f"  ç„¦è·: {config['focal_length']}")
+    print(f"  ç½®ä¿¡åº¦: {config['conf_threshold']}")
+    print(f"  TTC é˜ˆå€¼: {config['ttc_threshold']}s")
     print("=" * 60)
 
-    # ---------- ¸ù¾İÄ£Ê½³õÊ¼»¯ ----------
+    # ---------- æ ¹æ®æ¨¡å¼åˆå§‹åŒ– ----------
     cap = None
     sim = None
     use_yolo = False
 
     if args.mode == 'sim':
-        print("\n[Ä£ÄâÄ£Ê½] Ê¹ÓÃºÏ³ÉÊı¾İ£¬ÎŞĞè YOLO Ä£ĞÍºÍÉãÏñÍ·")
-        print("  ¡ú ½«×Ô¶¯ÑİÊ¾ 5 ¸ö¼İÊ»³¡¾° (22 ÃëÑ­»·)")
+        print("\n[æ¨¡æ‹Ÿæ¨¡å¼] ä½¿ç”¨åˆæˆæ•°æ®ï¼Œæ— éœ€ YOLO æ¨¡å‹å’Œæ‘„åƒå¤´")
+        print("  â†’ å°†è‡ªåŠ¨æ¼”ç¤º 5 ä¸ªé©¾é©¶åœºæ™¯ (22 ç§’å¾ªç¯)")
         sim = SimulatedScenario(960, 540)
         pipeline = ExternalPipeline(config, use_yolo=False)
     else:
         use_yolo = True
         source = int(args.source) if args.source.isdigit() else args.source
-        print(f"\n[{'ÉãÏñÍ·' if args.mode == 'camera' else 'ÊÓÆµ'}Ä£Ê½] Ô´: {source}")
-        print(f"  YOLO Ä£ĞÍ: {config['model_path']}")
+        print(f"\n[{'æ‘„åƒå¤´' if args.mode == 'camera' else 'è§†é¢‘'}æ¨¡å¼] æº: {source}")
+        print(f"  YOLO æ¨¡å‹: {config['model_path']}")
 
         try:
             pipeline = ExternalPipeline(config, use_yolo=True)
         except Exception as e:
-            print(f"\n[´íÎó] ÎŞ·¨³õÊ¼»¯ YOLO: {e}")
-            print("  ÌáÊ¾: ÇëÈ·±£ÒÑ°²×° ultralytics ²¢ÏÂÔØÁËÄ£ĞÍÎÄ¼ş")
-            print("  »òÕßÊ¹ÓÃ --mode sim ½øĞĞ´¿Âß¼­²âÊÔ")
+            print(f"\n[é”™è¯¯] æ— æ³•åˆå§‹åŒ– YOLO: {e}")
+            print("  æç¤º: è¯·ç¡®ä¿å·²å®‰è£… ultralytics å¹¶ä¸‹è½½äº†æ¨¡å‹æ–‡ä»¶")
+            print("  æˆ–è€…ä½¿ç”¨ --mode sim è¿›è¡Œçº¯é€»è¾‘æµ‹è¯•")
             sys.exit(1)
 
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
-            print(f"[´íÎó] ÎŞ·¨´ò¿ªÊÓÆµÔ´: {source}")
+            print(f"[é”™è¯¯] æ— æ³•æ‰“å¼€è§†é¢‘æº: {source}")
             sys.exit(1)
 
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         src_fps = cap.get(cv2.CAP_PROP_FPS)
-        print(f"  ·Ö±æÂÊ: {w}x{h}, Ö¡ÂÊ: {src_fps:.1f}, ×ÜÖ¡Êı: {total}")
+        print(f"  åˆ†è¾¨ç‡: {w}x{h}, å¸§ç‡: {src_fps:.1f}, æ€»å¸§æ•°: {total}")
 
-    # ---------- Ö÷Ñ­»· ----------
+    # ---------- ä¸»å¾ªç¯ ----------
     fps_counter = FPSCounter()
     paused = False
     frame_count = 0
     conf_threshold = config['conf_threshold']
 
-    print("\n[ÔËĞĞÖĞ] °´ Q »ò ESC ÍË³ö\n")
+    print("\n[è¿è¡Œä¸­] æŒ‰ Q æˆ– ESC é€€å‡º\n")
 
     while True:
-        # --- »ñÈ¡Ö¡ ---
+        # --- è·å–å¸§ ---
         if args.mode == 'sim':
             frame, sim_detections = sim.generate()
         else:
@@ -599,24 +625,24 @@ def main():
                 ret, frame = cap.read()
                 if not ret:
                     if args.mode == 'video':
-                        # ÊÓÆµÑ­»·²¥·Å
+                        # è§†é¢‘å¾ªç¯æ’­æ”¾
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                         continue
                     else:
-                        print("[ĞÅÏ¢] ÉãÏñÍ·¶Ï¿ª")
+                        print("[ä¿¡æ¯] æ‘„åƒå¤´æ–­å¼€")
                         break
 
         if paused and args.mode != 'sim':
-            # ÔİÍ£Ê±Ìø¹ı´¦Àí£¬½ö´¦Àí°´¼ü
+            # æš‚åœæ—¶è·³è¿‡å¤„ç†ï¼Œä»…å¤„ç†æŒ‰é”®
             pass
         else:
-            # --- Pipeline ´¦Àí ---
+            # --- Pipeline å¤„ç† ---
             if args.mode == 'sim':
                 detections = pipeline.run(frame, detections=sim_detections)
             else:
                 detections = pipeline.run(frame)
 
-            # --- ¿ÉÊÓ»¯ ---
+            # --- å¯è§†åŒ– ---
             frame = draw_detections(frame, detections)
 
             max_level = max((d.get('warning_level', 0) for d in detections), default=0)
@@ -627,7 +653,7 @@ def main():
             fps_counter.tick()
             frame_count += 1
 
-            # Ã¿ 60 Ö¡Êä³öÒ»´Î¿ØÖÆÌ¨ÈÕÖ¾
+            # æ¯ 60 å¸§è¾“å‡ºä¸€æ¬¡æ§åˆ¶å°æ—¥å¿—
             if frame_count % 60 == 0:
                 det_summary = []
                 for d in detections:
@@ -637,11 +663,11 @@ def main():
                         f"ttc={d.get('ttc', 99):.1f}s "
                         f"[{d.get('warning_text', '?')}]"
                     )
-                summary_str = " | ".join(det_summary) if det_summary else "ÎŞ¼ì²â"
+                summary_str = " | ".join(det_summary) if det_summary else "æ— æ£€æµ‹"
                 print(f"  [F{frame_count:5d}] FPS={fps_counter.fps:.1f} "
-                      f"Vehicles={len(detections)} ¡ú {summary_str}")
+                      f"Vehicles={len(detections)} â†’ {summary_str}")
 
-        # --- ÏÔÊ¾ ---
+        # --- æ˜¾ç¤º ---
         if not args.no_display:
             cv2.imshow('IDMS External Module Demo', frame)
 
@@ -651,48 +677,48 @@ def main():
             elif key == ord('s'):
                 filename = f"screenshot_{int(time.time())}.png"
                 cv2.imwrite(filename, frame)
-                print(f"  [½ØÍ¼] ÒÑ±£´æ: {filename}")
+                print(f"  [æˆªå›¾] å·²ä¿å­˜: {filename}")
             elif key == ord('p'):
                 paused = not paused
-                print(f"  [{'ÔİÍ£' if paused else '¼ÌĞø'}]")
+                print(f"  [{'æš‚åœ' if paused else 'ç»§ç»­'}]")
             elif key == ord('+') or key == ord('='):
                 conf_threshold = min(0.95, conf_threshold + 0.05)
                 if use_yolo:
                     pipeline.detector.conf_threshold = conf_threshold
-                print(f"  [ÖÃĞÅ¶È] ¡ú {conf_threshold:.2f}")
+                print(f"  [ç½®ä¿¡åº¦] â†’ {conf_threshold:.2f}")
             elif key == ord('-'):
                 conf_threshold = max(0.1, conf_threshold - 0.05)
                 if use_yolo:
                     pipeline.detector.conf_threshold = conf_threshold
-                print(f"  [ÖÃĞÅ¶È] ¡ú {conf_threshold:.2f}")
+                print(f"  [ç½®ä¿¡åº¦] â†’ {conf_threshold:.2f}")
         else:
-            # ÎŞÍ·Ä£Ê½: ÏŞÖÆÖ¡ÂÊ£¬½öÊä³öÈÕÖ¾
+            # æ— å¤´æ¨¡å¼: é™åˆ¶å¸§ç‡ï¼Œä»…è¾“å‡ºæ—¥å¿—
             time.sleep(0.03)
             if frame_count > 300:
                 break
 
-    # --- ÇåÀí ---
+    # --- æ¸…ç† ---
     if cap:
         cap.release()
     cv2.destroyAllWindows()
 
-    print(f"\n[Íê³É] ¹²´¦Àí {frame_count} Ö¡£¬Æ½¾ù FPS: {fps_counter.fps:.1f}")
+    print(f"\n[å®Œæˆ] å…±å¤„ç† {frame_count} å¸§ï¼Œå¹³å‡ FPS: {fps_counter.fps:.1f}")
     print("=" * 60)
 
 
-# ==================== µ¥Ôª²âÊÔÈë¿Ú ====================
+# ==================== å•å…ƒæµ‹è¯•å…¥å£ ====================
 
 def run_unit_tests():
     """
-    ¿ìËÙµ¥Ôª²âÊÔ ¡ª¡ª ÎŞĞèÈÎºÎÓ²¼ş»òÄ£ĞÍ
-    ÑéÖ¤ DistanceEstimator ºÍ CollisionWarner µÄºËĞÄÂß¼­
+    å¿«é€Ÿå•å…ƒæµ‹è¯• â€”â€” æ— éœ€ä»»ä½•ç¡¬ä»¶æˆ–æ¨¡å‹
+    éªŒè¯ DistanceEstimator å’Œ CollisionWarner çš„æ ¸å¿ƒé€»è¾‘
     """
     print("\n" + "=" * 60)
-    print("  ²ÕÍâÄ£¿é µ¥Ôª²âÊÔ")
+    print("  èˆ±å¤–æ¨¡å— å•å…ƒæµ‹è¯•")
     print("=" * 60)
 
-    # ÎªÁË±ÜÃâ import Â·¾¶ÎÊÌâ£¬Ö±½ÓÔÚ´Ë´¦¶¨Òå¼ò»¯°æÀà
-    # Êµ¼ÊÏîÄ¿ÖĞÓ¦ from src.external import ...
+    # ä¸ºäº†é¿å… import è·¯å¾„é—®é¢˜ï¼Œç›´æ¥åœ¨æ­¤å¤„å®šä¹‰ç®€åŒ–ç‰ˆç±»
+    # å®é™…é¡¹ç›®ä¸­åº” from src.external import ...
     test_config = {
         'focal_length': 600.0,
         'known_width': 1.8,
@@ -717,76 +743,76 @@ def run_unit_tests():
         else:
             failed += 1
 
-    # --- ²âÊÔ 1: ¾àÀë¹ÀËã ---
-    print("\n[Test 1] DistanceEstimator ¾àÀë¼ÆËã")
+    # --- æµ‹è¯• 1: è·ç¦»ä¼°ç®— ---
+    print("\n[Test 1] DistanceEstimator è·ç¦»è®¡ç®—")
 
     # D = (W * F) / P = (1.8 * 600) / P
     test_cases = [
-        (108, 10.0),    # P=108 ¡ú D=10.0m
-        (54, 20.0),     # P=54  ¡ú D=20.0m
-        (216, 5.0),     # P=216 ¡ú D=5.0m
-        (1080, 1.0),    # P=1080 ¡ú D=1.0m
+        (108, 10.0),    # P=108 â†’ D=10.0m
+        (54, 20.0),     # P=54  â†’ D=20.0m
+        (216, 5.0),     # P=216 â†’ D=5.0m
+        (1080, 1.0),    # P=1080 â†’ D=1.0m
     ]
 
     for pixel_w, expected_dist in test_cases:
         det = [{'box': [100, 200, 100 + pixel_w, 350], 'class_id': 2}]
-        # ÊÖ¶¯¼ÆËã
+        # æ‰‹åŠ¨è®¡ç®—
         dist = (1.8 * 600) / pixel_w
         assert_close(f"P={pixel_w}", dist, expected_dist, tol=0.1)
 
-    # --- ²âÊÔ 2: Ğ£×¼¸¨Öú ---
-    print("\n[Test 2] calibration_helper ½¹¾àĞ£×¼")
+    # --- æµ‹è¯• 2: æ ¡å‡†è¾…åŠ© ---
+    print("\n[Test 2] calibration_helper ç„¦è·æ ¡å‡†")
     # F = (P * D) / W = (150 * 5) / 1.8 = 416.67
     from src.external.distance_est import DistanceEstimator as DE
     f = DE.calibration_helper(5.0, 150, 1.8)
     assert_close("F(D=5,P=150,W=1.8)", f, 416.67, tol=0.1)
 
-    # --- ²âÊÔ 3: TTC ¼ÆËãÂß¼­ ---
-    print("\n[Test 3] CollisionWarner TTC Âß¼­")
+    # --- æµ‹è¯• 3: TTC è®¡ç®—é€»è¾‘ ---
+    print("\n[Test 3] CollisionWarner TTC é€»è¾‘")
 
     from src.external.collision_warn import CollisionWarner as CW
     warner = CW(test_config)
 
-    # Ä£ÄâµÚÒ»Ö¡: ¾àÀë 20m
+    # æ¨¡æ‹Ÿç¬¬ä¸€å¸§: è·ç¦» 20m
     frame1 = [{'box': [400, 300, 500, 370], 'distance': 20.0, 'class_id': 2}]
     result1 = warner.process(frame1)
-    assert_close("Ö¡1 warning_level (ÎŞÀúÊ·)", result1[0]['warning_level'], 0, tol=0.1)
+    assert_close("å¸§1 warning_level (æ— å†å²)", result1[0]['warning_level'], 0, tol=0.1)
 
-    # Ä£ÄâµÚ¶şÖ¡: ¾àÀë 15m (¹ıÁË 0.5 Ãë)
-    time.sleep(0.05)  # ¶ÌÔİµÈ´ı²úÉúÊ±¼ä²î
-    warner.last_timestamp = time.time() - 0.5  # Ä£Äâ 0.5 ÃëÇ°
+    # æ¨¡æ‹Ÿç¬¬äºŒå¸§: è·ç¦» 15m (è¿‡äº† 0.5 ç§’)
+    time.sleep(0.05)  # çŸ­æš‚ç­‰å¾…äº§ç”Ÿæ—¶é—´å·®
+    warner.last_timestamp = time.time() - 0.5  # æ¨¡æ‹Ÿ 0.5 ç§’å‰
     frame2 = [{'box': [395, 298, 510, 375], 'distance': 15.0, 'class_id': 2}]
     result2 = warner.process(frame2)
 
     # V_rel = (20-15)/0.5 = 10 m/s
-    # TTC = 15/10 = 1.5s ¡ú ¸ÕºÃÔÚãĞÖµ±ßÔµ
-    print(f"  ¡ú rel_speed={result2[0]['rel_speed']:.2f} m/s, "
+    # TTC = 15/10 = 1.5s â†’ åˆšå¥½åœ¨é˜ˆå€¼è¾¹ç¼˜
+    print(f"  â†’ rel_speed={result2[0]['rel_speed']:.2f} m/s, "
           f"ttc={result2[0]['ttc']:.2f} s, "
           f"level={result2[0]['warning_level']}")
 
-    # --- ²âÊÔ 4: ·çÏÕ·Ö¼¶ ---
-    print("\n[Test 4] ·çÏÕ·Ö¼¶ÑéÖ¤")
+    # --- æµ‹è¯• 4: é£é™©åˆ†çº§ ---
+    print("\n[Test 4] é£é™©åˆ†çº§éªŒè¯")
 
     warner2 = CW(test_config)
 
-    # °²È«³¡¾°: ¾àÀëÔ¶ÇÒÎÈ¶¨
+    # å®‰å…¨åœºæ™¯: è·ç¦»è¿œä¸”ç¨³å®š
     warner2.last_frame_data = [{'box': [400, 300, 500, 370], 'distance': 50.0}]
     warner2.last_timestamp = time.time() - 0.1
     safe = warner2.process([{'box': [400, 300, 500, 370], 'distance': 49.5, 'class_id': 2}])
-    assert_close("°²È«³¡¾° warning_level", safe[0]['warning_level'], 0, tol=0.1)
+    assert_close("å®‰å…¨åœºæ™¯ warning_level", safe[0]['warning_level'], 0, tol=0.1)
 
-    # Î£ÏÕ³¡¾°: ¼«ËÙ½Ó½ü
+    # å±é™©åœºæ™¯: æé€Ÿæ¥è¿‘
     warner3 = CW(test_config)
     warner3.last_frame_data = [{'box': [400, 300, 500, 370], 'distance': 8.0}]
     warner3.last_timestamp = time.time() - 0.1
     danger = warner3.process([{'box': [395, 298, 510, 375], 'distance': 3.0, 'class_id': 2}])
-    # V_rel = (8-3)/0.1 = 50 m/s, TTC = 3/50 = 0.06s ¡ú ¼«¶ÈÎ£ÏÕ
-    assert_close("Î£ÏÕ³¡¾° warning_level", danger[0]['warning_level'], 2, tol=0.1)
+    # V_rel = (8-3)/0.1 = 50 m/s, TTC = 3/50 = 0.06s â†’ æåº¦å±é™©
+    assert_close("å±é™©åœºæ™¯ warning_level", danger[0]['warning_level'], 2, tol=0.1)
 
-    # --- ×Ü½á ---
+    # --- æ€»ç»“ ---
     print(f"\n{'=' * 60}")
     total = passed + failed
-    print(f"  ²âÊÔ½á¹û: {passed}/{total} Í¨¹ı")
+    print(f"  æµ‹è¯•ç»“æœ: {passed}/{total} é€šè¿‡")
     if failed == 0:
         print("  [OK] All tests passed! External module logic is correct.")
     else:
@@ -796,15 +822,15 @@ def run_unit_tests():
     return failed == 0
 
 
-# ==================== Èë¿Ú ====================
+# ==================== å…¥å£ ====================
 
 if __name__ == '__main__':
-    # ½«ÏîÄ¿¸ùÄ¿Â¼¼ÓÈë sys.path
+    # å°†é¡¹ç›®æ ¹ç›®å½•åŠ å…¥ sys.path
     project_root = os.path.dirname(os.path.abspath(__file__))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    # Èç¹û´«ÈëÁË --test ²ÎÊı£¬ÔËĞĞµ¥Ôª²âÊÔ
+    # å¦‚æœä¼ å…¥äº† --test å‚æ•°ï¼Œè¿è¡Œå•å…ƒæµ‹è¯•
     if '--test' in sys.argv:
         sys.argv.remove('--test')
         success = run_unit_tests()

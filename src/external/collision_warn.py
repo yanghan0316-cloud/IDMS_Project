@@ -75,9 +75,12 @@ class CollisionWarner:
             self.last_frame_data = []
 
         for obj in detections:
+            # --- 初始化基础状态 ---
             obj['rel_speed'] = 0.0
             obj['ttc'] = 99.0
             obj['warning_level'] = self.LEVEL_SAFE
+            obj['raw_level'] = self.LEVEL_SAFE  # 新增：记录当前帧的"原始计算等级"
+            obj['streak'] = 1                   # 新增：记录该原始等级"连续出现的帧数"
             obj['warning_text'] = self.LEVEL_TEXT[self.LEVEL_SAFE]
 
             if obj.get('distance', -1) <= 0:
@@ -86,24 +89,50 @@ class CollisionWarner:
             matched = self._find_best_match(obj, self.last_frame_data)
 
             if matched and matched.get('distance', -1) > 0:
+                # 1. 计算相对速度 (保留上一版的 EMA 平滑)
                 delta_dist = matched['distance'] - obj['distance']
-                rel_speed = delta_dist / time_diff
+                raw_rel_speed = delta_dist / time_diff
+                prev_speed = matched.get('rel_speed', 0.0)
+                rel_speed = 0.2 * raw_rel_speed + 0.8 * prev_speed 
                 obj['rel_speed'] = round(rel_speed, 2)
 
-                if rel_speed > 0.1:
+                # 2. 计算当前帧纯粹的 "原始风险等级 (raw_level)"
+                raw_level = self.LEVEL_SAFE
+                if rel_speed > 1.5:
                     ttc = obj['distance'] / rel_speed
                     obj['ttc'] = round(ttc, 2)
-
-                    if ttc < self.ttc_threshold:
-                        obj['warning_level'] = self.LEVEL_DANGER
-                    elif obj['distance'] < (rel_speed * self.safe_distance_time):
-                        obj['warning_level'] = self.LEVEL_CAUTION
+                    if obj['distance'] < 45.0:
+                        if ttc < self.ttc_threshold:
+                            raw_level = self.LEVEL_DANGER
+                        elif obj['distance'] < (rel_speed * self.safe_distance_time):
+                            raw_level = self.LEVEL_CAUTION
                 else:
-                    # 静止/远离但极近
                     if obj['distance'] < 2.0:
-                        obj['warning_level'] = self.LEVEL_CAUTION
+                        raw_level = self.LEVEL_CAUTION
 
-            # 冷却期：防止连续响红色警报
+                # 3. 核心机制：连续帧状态机防抖 (Debounce)
+                prev_raw = matched.get('raw_level', self.LEVEL_SAFE)
+                streak = matched.get('streak', 0)
+                
+                # 如果当前计算结果与上一帧相同，连续帧数 +1；否则重置为 1
+                if raw_level == prev_raw:
+                    streak += 1
+                else:
+                    streak = 1  
+                    
+                obj['raw_level'] = raw_level
+                obj['streak'] = streak
+
+                # 4. 决定最终输出的等级
+                CONFIRM_FRAMES = 2  # 设置连续多少帧才生效
+                if streak < CONFIRM_FRAMES:
+                    # 状态尚未稳定 (例如突发的1帧误报)，强行继承上一帧的输出状态
+                    obj['warning_level'] = matched.get('warning_level', self.LEVEL_SAFE)
+                else:
+                    # 状态已连续维持 2 帧，确认更新输出状态
+                    obj['warning_level'] = raw_level
+
+            # --- 下方保留你原有的冷却期逻辑，不做修改 ---
             grid_key = self._grid_key(obj['box'])
             if obj['warning_level'] == self.LEVEL_DANGER:
                 last_danger = self._cooldown_map.get(grid_key, 0)

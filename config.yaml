@@ -69,7 +69,7 @@ internal:
 external:
   # --- YOLOv8 配置 ---
   model_path: "yolov8n.pt"        # 模型文件 (Nano版, 适合CPU)
-  conf_threshold: 0.5             # 置信度阈值
+  conf_threshold: 0.65             # 置信度阈值
   imgsz: 640                      # 推理输入尺寸 (降低可提速)
   device: "cuda:0"                   # 'cpu' 或 'cuda:0'
   roi_top_ratio: 0.35             # ROI 上边界 (0.35 = 只检测下方65%)
