@@ -3,8 +3,8 @@
 # ==========================================
 
 system:
-  camera_id_ext: 0      # 舱外摄像头 (比如 USB 摄像头 A)
-  camera_id_int: 1      # 舱内摄像头 (比如 USB 摄像头 B)
+  camera_id_ext: 1      # 舱外摄像头 (比如 USB 摄像头 A)
+  camera_id_int: 0      # 舱内摄像头 (比如 USB 摄像头 B)
   frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
   queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
