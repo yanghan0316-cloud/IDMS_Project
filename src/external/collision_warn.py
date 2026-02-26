@@ -221,7 +221,7 @@ class CollisionWarner:
                 obj['streak'] = streak
 
                 # 4. 决定最终输出等级
-                CONFIRM_FRAMES = 2
+                CONFIRM_FRAMES = 3
                 if streak < CONFIRM_FRAMES:
                     obj['warning_level'] = matched.get('warning_level', self.LEVEL_SAFE)
                 else:
