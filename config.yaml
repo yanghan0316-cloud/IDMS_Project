@@ -3,7 +3,8 @@
 # ==========================================
 
 system:
-  camera_id: 0                  # 默认摄像头索引
+  camera_id_ext: 0      # 舱外摄像头 (比如 USB 摄像头 A)
+  camera_id_int: 1      # 舱内摄像头 (比如 USB 摄像头 B)
   frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
   queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
@@ -70,7 +71,7 @@ external:
   model_path: "yolov8n.pt"        # 模型文件 (Nano版, 适合CPU)
   conf_threshold: 0.5             # 置信度阈值
   imgsz: 640                      # 推理输入尺寸 (降低可提速)
-  device: "cpu"                   # 'cpu' 或 'cuda:0'
+  device: "cuda:0"                   # 'cpu' 或 'cuda:0'
   roi_top_ratio: 0.35             # ROI 上边界 (0.35 = 只检测下方65%)
 
   # --- 距离估算 ---
