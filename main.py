@@ -3,7 +3,8 @@ import time
 import yaml
 import multiprocessing as mp
 from queue import Empty, Full
-import numpy as np  # 新增：用于拼接两路摄像头的画面
+import numpy as np  
+from src.ui.alert_system import AudioAlerter
 
 # --- 导入我们之前写好的模块 ---
 # 1. 舱外感知模块 (External)
@@ -26,13 +27,13 @@ def load_config(path="config.yaml"):
         print("[错误] 找不到 config.yaml，请确保它在项目根目录下！")
         exit(1)
 
-def camera_producer(queue, camera_id, width, height, label="Cam"):
+def camera_producer(queue, camera_id_int, width, height, label="Cam"):
     """
     [生产者进程] 
     职责：只负责从摄像头读取图像，推送到队列。
     """
-    print(f"[{label}] 正在打开摄像头 (ID: {camera_id})...")
-    cap = cv2.VideoCapture(camera_id)
+    print(f"[{label}] 正在打开摄像头 (ID: {camera_id_int})...")
+    cap = cv2.VideoCapture(camera_id_int)
     
     # 设置分辨率 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
@@ -104,6 +105,9 @@ def main():
     # --- 实例化 UI 模块 ---
     visualizer = Visualizer(config['ui']) 
 
+    # 新增：实例化声音报警模块
+    alerter = AudioAlerter(config.get('ui', {}))
+
     # --- 实例化舱内模块 ---
     config['internal']['return_landmarks'] = bool(config.get('ui', {}).get('show_landmarks', False))
     face_detector = FaceMeshDetector(config['internal'])
@@ -170,6 +174,22 @@ def main():
             cv2.putText(combined_frame, f"FPS: {fps_display}", (10, combined_frame.shape[0] - 10), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
+            # --- D. 声音报警 ---
+            # 舱外：检查是否有 DANGER 级别目标
+            ext_has_danger = any(
+                v.get('warning_level', 0) >= 2 for v in vehicle_data
+            )
+            # 舱内：检查疲劳/分心/点头任一触发
+            int_has_danger = bool(
+                face_data and (
+                    face_data.get('is_drowsy')
+                    or face_data.get('is_yawning')
+                    or face_data.get('is_distracted')
+                    or face_data.get('is_nodding')
+                )
+            )
+            alerter.update(ext_danger=ext_has_danger, int_danger=int_has_danger)
+
             # ==========================================================
 
             # 6. 显示最终拼接画面
@@ -196,6 +216,7 @@ def main():
         p_camera_ext.join()
         p_camera_int.join()
         cv2.destroyAllWindows()
+        alerter.close()
         print("[System] 程序已安全退出。")
 
 if __name__ == '__main__':

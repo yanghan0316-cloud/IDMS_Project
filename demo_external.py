@@ -52,6 +52,9 @@ except ImportError:
     print("[错误] 未安装 opencv-python，请运行: pip install opencv-python")
     sys.exit(1)
 
+# ===================== 导入声音报警模块 =====================
+from src.ui.alert_system import AudioAlerter
+
 
 # ==================== 配置 & 参数解析 ====================
 
@@ -82,18 +85,17 @@ def load_yaml_config(config_path="config.yaml"):
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             full_config = yaml.safe_load(f)
-            return full_config.get('external', {})
+            return full_config.get('external', {}), full_config.get('ui', {})
     except Exception as e:
         print(f"[警告] 无法读取 {config_path} ({e})，将使用默认内置参数。")
-        return {}
+        return {}, {}
 
 def build_config(args):
     """从 yaml 和命令行参数构建 config 字典"""
     # 1. 优先从 config.yaml 中读取外部模块的配置
-    config = load_yaml_config()
+    config, ui_config = load_yaml_config()
 
     # 2. 如果命令行传入了非默认参数，则覆盖 yaml 中的设置
-    # (这里利用 args 的默认值来判断用户是否在命令行做了指定)
     if args.model != "yolov8n.pt" or 'model_path' not in config:
         config['model_path'] = args.model
     if args.conf != 0.5 or 'conf_threshold' not in config:
@@ -103,7 +105,7 @@ def build_config(args):
     if args.focal != 600.0 or 'focal_length' not in config:
         config['focal_length'] = args.focal
 
-    # 3. 补充一些必须的默认值 (兜底，防止 yaml 中被误删)
+    # 3. 补充一些必须的默认值
     config.setdefault('device', 'cpu')
     config.setdefault('roi_top_ratio', 0.35)
     config.setdefault('known_width', 1.8)
@@ -112,12 +114,10 @@ def build_config(args):
     config.setdefault('smoothing', 0.3)
     config.setdefault('ttc_threshold', 1.5)
     config.setdefault('safe_distance_time', 2.0)
-    
-    # 补充刚才新增的碰撞预警参数兜底
     config.setdefault('match_pixel_base', 80)
     config.setdefault('cooldown_sec', 3.0)
 
-    return config
+    return config, ui_config
 
 
 # ==================== 可视化渲染器 ====================
@@ -156,21 +156,16 @@ def draw_detections(frame, detections):
         conf = obj.get('conf', 0)
         warning_text = obj.get('warning_text', 'SAFE')
 
-        # 第一行: 类别 + 置信度
         line1 = f"{cls_name} {conf:.0%}"
-        # 第二行: 距离
         line2 = f"Dist: {dist:.1f}m" if dist > 0 else "Dist: N/A"
-        # 第三行: TTC + 相对速度
         if ttc < 90:
             line3 = f"TTC: {ttc:.1f}s  V: {rel_speed:+.1f}m/s"
         else:
             line3 = f"V: {rel_speed:+.1f}m/s"
 
-        # 绘制标签背景 + 文字
         labels = [line1, line2, line3]
         _draw_label_block(frame, x1, y1 - 5, labels, color)
 
-        # --- 危险等级角标 ---
         if level >= 1:
             badge_text = f" {warning_text} "
             (tw, th), _ = cv2.getTextSize(badge_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
@@ -191,7 +186,6 @@ def _draw_label_block(frame, x, y, lines, color):
     line_h = 18
     padding = 4
 
-    # 计算最大宽度
     max_w = 0
     for line in lines:
         (tw, _), _ = cv2.getTextSize(line, font, scale, thick)
@@ -200,21 +194,17 @@ def _draw_label_block(frame, x, y, lines, color):
     total_h = line_h * len(lines) + padding * 2
     total_w = max_w + padding * 2
 
-    # 背景位置 (在框上方)
     bg_y1 = y - total_h
     bg_y2 = y
     bg_x1 = x
     bg_x2 = x + total_w
 
-    # 半透明背景
     overlay = frame.copy()
     cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), COLOR_TEXT_BG, -1)
     cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
 
-    # 左侧色条
     cv2.rectangle(frame, (bg_x1, bg_y1), (bg_x1 + 3, bg_y2), color, -1)
 
-    # 文字
     for i, line in enumerate(lines):
         ty = bg_y1 + padding + line_h * (i + 1) - 3
         cv2.putText(frame, line, (bg_x1 + padding + 4, ty),
@@ -225,25 +215,20 @@ def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
     """绘制顶部仪表板 HUD"""
     h, w = frame.shape[:2]
 
-    # 半透明顶栏
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, 50), (20, 20, 20), -1)
     cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
 
-    # FPS
     fps_color = COLOR_SAFE if fps > 15 else (COLOR_CAUTION if fps > 8 else COLOR_DANGER)
     cv2.putText(frame, f"FPS: {fps:.1f}", (10, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, fps_color, 2)
 
-    # 检测数量
     cv2.putText(frame, f"Vehicles: {det_count}", (160, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_CYAN, 2)
 
-    # 置信度阈值
     cv2.putText(frame, f"Conf: {conf_threshold:.2f}", (360, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, COLOR_WHITE, 1)
 
-    # 全局风险状态
     if max_danger_level == 2:
         status = "!! COLLISION WARNING !!"
         status_color = COLOR_DANGER
@@ -258,9 +243,7 @@ def draw_dashboard(frame, fps, det_count, max_danger_level, conf_threshold):
     cv2.putText(frame, status, (w - tw - 15, 35),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
 
-    # 危险时全屏红色边框闪烁
     if max_danger_level == 2:
-        # 用时间控制闪烁
         if int(time.time() * 4) % 2 == 0:
             cv2.rectangle(frame, (0, 0), (w - 1, h - 1), COLOR_DANGER, 4)
 
@@ -283,14 +266,7 @@ def draw_help(frame):
 
 class SimulatedScenario:
     """
-    模拟驾驶场景生成器 —— 无需 YOLO 模型即可测试距离估算和碰撞预警逻辑
-
-    模拟场景:
-        场景 1 (0~5s):   前方一辆车匀速行驶，安全距离 → 绿色
-        场景 2 (5~10s):  前车减速，我车靠近 → 黄色
-        场景 3 (10~14s): 急速接近，TTC < 1.5s → 红色
-        场景 4 (14~18s): 前车加速拉开距离 → 恢复绿色
-        场景 5 (18~22s): 右侧车道出现摩托车，缓慢靠近 → 黄色
+    模拟驾驶场景生成器
     """
 
     def __init__(self, frame_w=960, frame_h=540):
@@ -299,37 +275,26 @@ class SimulatedScenario:
         self.start_time = time.time()
 
     def generate(self):
-        """
-        返回:
-            frame (ndarray): 模拟画面
-            detections (list[dict]): 模拟的检测结果（已包含 box, class_id 等）
-        """
         t = time.time() - self.start_time
-        # 循环场景 (22秒一个周期)
         t = t % 22.0
 
         frame = self._draw_road()
         detections = []
 
-        # === 场景 1~4: 前方主车 ===
         if t < 5:
-            # 安全跟车
             dist = 25.0
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 10:
-            # 前车减速，距离缩短
             progress = (t - 5) / 5.0
-            dist = 25.0 - progress * 15.0  # 25m → 10m
+            dist = 25.0 - progress * 15.0
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 14:
-            # 急速接近
             progress = (t - 10) / 4.0
-            dist = 10.0 - progress * 8.0  # 10m → 2m
+            dist = 10.0 - progress * 8.0
             box = self._dist_to_box(dist, cx_ratio=0.5)
         elif t < 18:
-            # 前车加速离开
             progress = (t - 14) / 4.0
-            dist = 2.0 + progress * 28.0  # 2m → 30m
+            dist = 2.0 + progress * 28.0
             box = self._dist_to_box(dist, cx_ratio=0.5)
         else:
             dist = 30.0
@@ -343,10 +308,8 @@ class SimulatedScenario:
                 'conf': 0.92,
                 'distance': round(dist, 2),
             })
-            # 在画面上绘制模拟车辆
             self._draw_vehicle(frame, box, 'car')
 
-        # === 场景 5: 右侧摩托车 (18s 后出现) ===
         if t >= 18:
             moto_progress = (t - 18) / 4.0
             moto_dist = 20.0 - moto_progress * 10.0
@@ -361,32 +324,24 @@ class SimulatedScenario:
                 })
                 self._draw_vehicle(frame, moto_box, 'motorcycle')
 
-        # 场景提示文字
         scenario_text = self._get_scenario_text(t)
         cv2.putText(frame, scenario_text, (10, self.h - 45),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
 
-        # 时间轴进度条
         self._draw_timeline(frame, t)
 
         return frame, detections
 
     def _dist_to_box(self, distance, cx_ratio=0.5, w_scale=1.0):
-        """
-        将模拟距离转化为像素级 bounding box
-        越近 → box 越大 (模拟透视效果)
-        """
         if distance < 0.5:
             distance = 0.5
-        # 模拟焦距效应: 像素宽度 ∝ 1/距离
         pixel_w = int((1.8 * 600 / distance) * w_scale)
-        pixel_h = int(pixel_w * 0.65)  # 车辆宽高比约 1:0.65
+        pixel_h = int(pixel_w * 0.65)
 
         cx = int(self.w * cx_ratio)
-        # 远处的车在画面偏上(接近消失点)，近处在画面中下
         vanish_y = int(self.h * 0.42)
         bottom_y = int(self.h * 0.85)
-        t = min(1.0, 5.0 / distance)  # 距离越近 t 越大
+        t = min(1.0, 5.0 / distance)
         cy = int(vanish_y + (bottom_y - vanish_y) * t)
 
         x1 = cx - pixel_w // 2
@@ -394,7 +349,6 @@ class SimulatedScenario:
         x2 = cx + pixel_w // 2
         y2 = cy + pixel_h // 2
 
-        # 边界裁剪
         x1 = max(0, x1)
         y1 = max(0, y1)
         x2 = min(self.w - 1, x2)
@@ -405,21 +359,17 @@ class SimulatedScenario:
         return [x1, y1, x2, y2]
 
     def _draw_road(self):
-        """绘制简易模拟道路背景"""
         frame = np.zeros((self.h, self.w, 3), dtype=np.uint8)
 
-        # 天空渐变 (深蓝→浅蓝)
         for y in range(int(self.h * 0.42)):
             ratio = y / (self.h * 0.42)
             b = int(60 + 80 * ratio)
             g = int(40 + 50 * ratio)
             frame[y, :] = (b, g, 20)
 
-        # 路面 (深灰)
         road_top = int(self.h * 0.42)
         frame[road_top:, :] = (50, 50, 55)
 
-        # 车道线 (白色虚线)
         vanish_x = self.w // 2
         vanish_y = road_top
 
@@ -436,18 +386,14 @@ class SimulatedScenario:
         return frame
 
     def _draw_vehicle(self, frame, box, label):
-        """在模拟画面中绘制简化车辆形状"""
         x1, y1, x2, y2 = box
-        # 车身 (深色矩形)
         body_color = (100, 80, 60) if label == 'car' else (80, 100, 120)
         cv2.rectangle(frame, (x1, y1), (x2, y2), body_color, -1)
-        # 车窗 (浅色)
         win_y1 = y1 + (y2 - y1) // 4
         win_y2 = y1 + (y2 - y1) * 2 // 4
         win_x1 = x1 + (x2 - x1) // 6
         win_x2 = x2 - (x2 - x1) // 6
         cv2.rectangle(frame, (win_x1, win_y1), (win_x2, win_y2), (140, 140, 160), -1)
-        # 尾灯
         light_w = max(3, (x2 - x1) // 8)
         light_h = max(2, (y2 - y1) // 8)
         cv2.rectangle(frame, (x1, y2 - light_h), (x1 + light_w, y2), (0, 0, 200), -1)
@@ -466,15 +412,12 @@ class SimulatedScenario:
             return f"Scene 5/5: Motorcycle appearing on right [{t:.1f}s]"
 
     def _draw_timeline(self, frame, t):
-        """底部时间轴进度条"""
         bar_y = self.h - 25
         bar_h = 8
         total = 22.0
 
-        # 背景
         cv2.rectangle(frame, (10, bar_y), (self.w - 10, bar_y + bar_h), (40, 40, 40), -1)
 
-        # 场景分段颜色
         segments = [
             (0, 5, COLOR_SAFE),
             (5, 10, COLOR_CAUTION),
@@ -488,7 +431,6 @@ class SimulatedScenario:
             ex = 10 + int(s_end / total * bar_w)
             cv2.rectangle(frame, (sx, bar_y), (ex, bar_y + bar_h), color, -1)
 
-        # 当前位置指示器
         cur_x = 10 + int(t / total * bar_w)
         cv2.circle(frame, (cur_x, bar_y + bar_h // 2), 6, COLOR_WHITE, -1)
         cv2.circle(frame, (cur_x, bar_y + bar_h // 2), 6, (0, 0, 0), 1)
@@ -497,10 +439,6 @@ class SimulatedScenario:
 # ==================== Pipeline 管线 ====================
 
 class ExternalPipeline:
-    """
-    将 YoloDetector → DistanceEstimator → CollisionWarner 串联为一条处理管线
-    """
-
     def __init__(self, config, use_yolo=True):
         self.use_yolo = use_yolo
 
@@ -514,20 +452,10 @@ class ExternalPipeline:
         self.collision_warn = CollisionWarner(config)
 
     def run(self, frame, detections=None):
-        """
-        Args:
-            frame: 输入帧 (当 use_yolo=True 时使用)
-            detections: 外部提供的检测结果 (当 use_yolo=False 时使用)
-
-        Returns:
-            detections: 完整的检测结果 (含 distance, ttc, warning_level 等)
-        """
         if self.use_yolo:
             detections = self.detector.process(frame)
             detections = self.distance_est.calculate(detections)
         else:
-            # 模拟模式: distance 已由 SimulatedScenario 提供，无需再算
-            # 但仍然走一遍 calculate 以验证钳位/平滑逻辑
             pass
 
         detections = self.collision_warn.process(detections)
@@ -560,7 +488,7 @@ class FPSCounter:
 
 def main():
     args = parse_args()
-    config = build_config(args)
+    config, ui_config = build_config(args)
 
     print("=" * 60)
     print("  IDMS 舱外感知模块 Demo")
@@ -606,6 +534,9 @@ def main():
         src_fps = cap.get(cv2.CAP_PROP_FPS)
         print(f"  分辨率: {w}x{h}, 帧率: {src_fps:.1f}, 总帧数: {total}")
 
+    # ---------- 初始化声音报警 ----------
+    alerter = AudioAlerter(ui_config)
+
     # ---------- 主循环 ----------
     fps_counter = FPSCounter()
     paused = False
@@ -623,7 +554,6 @@ def main():
                 ret, frame = cap.read()
                 if not ret:
                     if args.mode == 'video':
-                        # 视频循环播放
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                         continue
                     else:
@@ -631,7 +561,6 @@ def main():
                         break
 
         if paused and args.mode != 'sim':
-            # 暂停时跳过处理，仅处理按键
             pass
         else:
             # --- Pipeline 处理 ---
@@ -648,10 +577,18 @@ def main():
                                    max_level, conf_threshold)
             frame = draw_help(frame)
 
+            # --- 声音报警 ---
+            ext_has_danger = any(
+                d.get('warning_level', 0) >= 2 for d in detections
+            )
+            alert_result = alerter.update(ext_danger=ext_has_danger)
+            if alert_result.get("ext_alert_fired"):
+                cv2.putText(frame, "ALERT SOUND!", (10, 80),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_DANGER, 2)
+
             fps_counter.tick()
             frame_count += 1
 
-            # 每 60 帧输出一次控制台日志
             if frame_count % 60 == 0:
                 det_summary = []
                 for d in detections:
@@ -670,7 +607,7 @@ def main():
             cv2.imshow('IDMS External Module Demo', frame)
 
             key = cv2.waitKey(1) & 0xFF
-            if key in (ord('q'), 27):  # q or ESC
+            if key in (ord('q'), 27):
                 break
             elif key == ord('s'):
                 filename = f"screenshot_{int(time.time())}.png"
@@ -690,7 +627,6 @@ def main():
                     pipeline.detector.conf_threshold = conf_threshold
                 print(f"  [置信度] → {conf_threshold:.2f}")
         else:
-            # 无头模式: 限制帧率，仅输出日志
             time.sleep(0.03)
             if frame_count > 300:
                 break
@@ -699,6 +635,7 @@ def main():
     if cap:
         cap.release()
     cv2.destroyAllWindows()
+    alerter.close()
 
     print(f"\n[完成] 共处理 {frame_count} 帧，平均 FPS: {fps_counter.fps:.1f}")
     print("=" * 60)
@@ -707,16 +644,11 @@ def main():
 # ==================== 单元测试入口 ====================
 
 def run_unit_tests():
-    """
-    快速单元测试 —— 无需任何硬件或模型
-    验证 DistanceEstimator 和 CollisionWarner 的核心逻辑
-    """
+    """快速单元测试"""
     print("\n" + "=" * 60)
     print("  舱外模块 单元测试")
     print("=" * 60)
 
-    # 为了避免 import 路径问题，直接在此处定义简化版类
-    # 实际项目中应 from src.external import ...
     test_config = {
         'focal_length': 600.0,
         'known_width': 1.8,
@@ -741,80 +673,60 @@ def run_unit_tests():
         else:
             failed += 1
 
-    # --- 测试 1: 距离估算 ---
     print("\n[Test 1] DistanceEstimator 距离计算")
-
-    # D = (W * F) / P = (1.8 * 600) / P
     test_cases = [
-        (108, 10.0),    # P=108 → D=10.0m
-        (54, 20.0),     # P=54  → D=20.0m
-        (216, 5.0),     # P=216 → D=5.0m
-        (1080, 1.0),    # P=1080 → D=1.0m
+        (108, 10.0),
+        (54, 20.0),
+        (216, 5.0),
+        (1080, 1.0),
     ]
 
     for pixel_w, expected_dist in test_cases:
         det = [{'box': [100, 200, 100 + pixel_w, 350], 'class_id': 2}]
-        # 手动计算
         dist = (1.8 * 600) / pixel_w
         assert_close(f"P={pixel_w}", dist, expected_dist, tol=0.1)
 
-    # --- 测试 2: 校准辅助 ---
     print("\n[Test 2] calibration_helper 焦距校准")
-    # F = (P * D) / W = (150 * 5) / 1.8 = 416.67
     from src.external.distance_est import DistanceEstimator as DE
     f = DE.calibration_helper(5.0, 150, 1.8)
     assert_close("F(D=5,P=150,W=1.8)", f, 416.67, tol=0.1)
 
-    # --- 测试 3: TTC 计算逻辑 ---
     print("\n[Test 3] CollisionWarner TTC 逻辑")
-
     from src.external.collision_warn import CollisionWarner as CW
     warner = CW(test_config)
 
-    # 模拟第一帧: 距离 20m
     frame1 = [{'box': [400, 300, 500, 370], 'distance': 20.0, 'class_id': 2}]
     result1 = warner.process(frame1)
     assert_close("帧1 warning_level (无历史)", result1[0]['warning_level'], 0, tol=0.1)
 
-    # 模拟第二帧: 距离 15m (过了 0.5 秒)
-    time.sleep(0.05)  # 短暂等待产生时间差
-    warner.last_timestamp = time.time() - 0.5  # 模拟 0.5 秒前
+    time.sleep(0.05)
+    warner.last_timestamp = time.time() - 0.5
     frame2 = [{'box': [395, 298, 510, 375], 'distance': 15.0, 'class_id': 2}]
     result2 = warner.process(frame2)
-
-    # V_rel = (20-15)/0.5 = 10 m/s
-    # TTC = 15/10 = 1.5s → 刚好在阈值边缘
     print(f"  → rel_speed={result2[0]['rel_speed']:.2f} m/s, "
           f"ttc={result2[0]['ttc']:.2f} s, "
           f"level={result2[0]['warning_level']}")
 
-    # --- 测试 4: 风险分级 ---
     print("\n[Test 4] 风险分级验证")
-
     warner2 = CW(test_config)
-
-    # 安全场景: 距离远且稳定
     warner2.last_frame_data = [{'box': [400, 300, 500, 370], 'distance': 50.0}]
     warner2.last_timestamp = time.time() - 0.1
     safe = warner2.process([{'box': [400, 300, 500, 370], 'distance': 49.5, 'class_id': 2}])
     assert_close("安全场景 warning_level", safe[0]['warning_level'], 0, tol=0.1)
 
-    # 危险场景: 极速接近
     warner3 = CW(test_config)
     warner3.last_frame_data = [{'box': [400, 300, 500, 370], 'distance': 8.0}]
     warner3.last_timestamp = time.time() - 0.1
     danger = warner3.process([{'box': [395, 298, 510, 375], 'distance': 3.0, 'class_id': 2}])
-    # V_rel = (8-3)/0.1 = 50 m/s, TTC = 3/50 = 0.06s → 极度危险
     assert_close("危险场景 warning_level", danger[0]['warning_level'], 2, tol=0.1)
 
-    # --- 总结 ---
     print(f"\n{'=' * 60}")
     total = passed + failed
     print(f"  测试结果: {passed}/{total} 通过")
     if failed == 0:
-        print("  [OK] All tests passed! External module logic is correct.")
+        print("  [OK] All tests passed!")
     else:
-        print(f"  [X] {failed} tests failed, please check the code.")
+        print(f"  [X] {failed} tests failed.")
     print("=" * 60)
 
     return failed == 0
@@ -823,12 +735,10 @@ def run_unit_tests():
 # ==================== 入口 ====================
 
 if __name__ == '__main__':
-    # 将项目根目录加入 sys.path
     project_root = os.path.dirname(os.path.abspath(__file__))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    # 如果传入了 --test 参数，运行单元测试
     if '--test' in sys.argv:
         sys.argv.remove('--test')
         success = run_unit_tests()

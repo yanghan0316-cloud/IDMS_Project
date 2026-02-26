@@ -37,7 +37,7 @@ def main():
     cfg = load_config(args.config)
     detector = FaceMeshDetector(cfg.get("internal", {}))
 
-    cap = cv2.VideoCapture(cfg["system"].get("camera_id", 0))
+    cap = cv2.VideoCapture(cfg["system"].get("camera_id_int", 0))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["system"].get("frame_width", 640))
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["system"].get("frame_height", 480))
 

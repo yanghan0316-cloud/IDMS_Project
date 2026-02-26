@@ -102,3 +102,10 @@ ui:
   show_landmarks: true          # 是否绘制面部网格
   warning_color: [0, 0, 255]    # 红色 (BGR格式)
   normal_color: [0, 255, 0]     # 绿色 (BGR格式)
+
+  # --- 声音报警配置 ---
+  alert:
+    enable: true
+    consecutive_frames: 2       # 连续几帧 DANGER 才报警
+    cooldown_sec: 3.0           # 报警后冷却时间（秒），避免重复轰炸
+    volume: 0.7                 # 音量 0.0~1.0
