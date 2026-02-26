@@ -91,6 +91,12 @@ external:
   match_pixel_base: 80            # 帧间匹配基础像素阈值
   cooldown_sec: 3.0               # 红色警报冷却时间 (秒)
 
+  # --- 横向车道相关性 ---
+  lane_center_ratio: 0.5         # 自车道中心在画面中的水平位置 (0.5=正中)
+  lane_full_width_ratio: 0.30    # 自车道占画面宽度的比例 (0.30=中间30%为自车道)
+  lane_relevance_mode: "soft"    # 'soft'=软衰减(推荐) / 'hard'=硬切
+  lateral_speed_threshold: 120.0 # 横向速度阈值(像素/秒)，超过则降级
+
 # --- 界面与报警 (UI) ---
 ui:
   show_landmarks: true          # 是否绘制面部网格
