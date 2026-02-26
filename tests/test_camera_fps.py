@@ -1,48 +1,53 @@
-import cv2  # 导入OpenCV库
+import cv2
+import time
 
-def main():
-    # 1. 初始化摄像头
-    # 参数 0 通常代表电脑自带的第一个摄像头
-    cap = cv2.VideoCapture(0)
+def test_camera(cam_id, width=640, height=480):
+    print(f"\n正在测试摄像头 ID: {cam_id} ...")
+    cap = cv2.VideoCapture(cam_id)
+    
+    # 强制设置分辨率
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-    # 检查摄像头是否成功打开
     if not cap.isOpened():
-        print("错误：无法打开摄像头，请检查连接或权限。")
+        print(f"❌ 无法打开摄像头 ID: {cam_id}")
         return
 
-    print("摄像头已启动。按 'q' 键退出程序。")
+    print(f"✅ 摄像头 {cam_id} 已启动。按 'q' 键退出当前测试。")
+
+    frame_count = 0
+    start_time = time.time()
+    fps = 0
 
     while True:
-        # 2. 逐帧读取视频流
-        # ret (布尔值): 是否成功读取
-        # frame (数组): 当前帧的图像数据（默认是BGR色彩空间）
         ret, frame = cap.read()
-
         if not ret:
-            print("错误：无法接收帧（流结束？）。")
+            print("读取帧失败。")
             break
 
-        # 3. 数据预处理：色彩空间转换
-        # 将 BGR (蓝绿红) 3通道图像转换为 灰度 (Grayscale) 1通道图像
-        # 这一步能显著减少后续算法（如人脸检测）的计算量
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame_count += 1
+        elapsed_time = time.time() - start_time
 
-        # 4. 可视化显示
-        # 创建两个窗口对比：原图 vs 灰度图
-        cv2.imshow('Original (RGB)', frame)
-        cv2.imshow('Processed (Grayscale)', gray_frame)
+        # 每隔 1 秒计算并更新一次 FPS
+        if elapsed_time >= 1.0:
+            fps = frame_count / elapsed_time
+            frame_count = 0
+            start_time = time.time()
+            print(f"摄像头 {cam_id} 当前帧率: {fps:.1f} FPS")
 
-        # 5. 退出逻辑
-        # cv2.waitKey(1) 等待1毫秒，如果有按键按下则返回按键的ASCII码
-        # ord('q') 获取字符 'q' 的ASCII码
+        # 将 FPS 写在画面上
+        cv2.putText(frame, f"Cam {cam_id} | {width}x{height} | FPS: {fps:.1f}", 
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        cv2.imshow(f'FPS Test - Cam {cam_id}', frame)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # 6. 资源释放
-    # 释放摄像头硬件控制权
     cap.release()
-    # 关闭所有OpenCV创建的窗口
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    # 假设你之前测出来舱内是0，舱外是1，可以在这里修改测试
+    test_camera(0)
+    test_camera(1)
