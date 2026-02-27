@@ -195,10 +195,6 @@ class FaceMeshDetector:
             "blink": bool(state.blink),
             "is_drowsy": bool(state.is_drowsy),
             "is_yawning": bool(state.is_yawning),
-            # 你已确认：5 分钟 3 次哈欠触发
-            "is_yawn_frequent": bool(getattr(state, "is_yawn_frequent", False)),
-            "yawn_count_window": int(getattr(state, "yawn_count_window", 0)),
-            "yawn_event": bool(getattr(state, "yawn_event", False)),
             "drowsy_frames": int(state.drowsy_frames),
             "yawn_frames": int(state.yawn_frames),
             "yaw": float(yaw),

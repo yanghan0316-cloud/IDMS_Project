@@ -37,7 +37,7 @@ def main():
     cfg = load_config(args.config)
     detector = FaceMeshDetector(cfg.get("internal", {}))
 
-    cap = cv2.VideoCapture(cfg["system"].get("camera_id", 0))
+    cap = cv2.VideoCapture(cfg["system"].get("camera_id_int", 0))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["system"].get("frame_width", 640))
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["system"].get("frame_height", 480))
 
@@ -53,7 +53,6 @@ def main():
             "ts", "has_face",
             "ear", "mar",
             "blink", "is_drowsy", "is_yawning",
-            "is_yawn_frequent", "yawn_count_window", "yawn_event",
             "yaw", "pitch", "roll",
             "is_distracted", "is_nodding",
             "drowsy_frames", "yawn_frames", "distracted_frames", "nod_frames",
@@ -79,7 +78,6 @@ def main():
                 "has_face",
                 "ear", "mar",
                 "blink", "is_drowsy", "is_yawning",
-                "is_yawn_frequent", "yawn_count_window",
                 "yaw", "pitch", "roll",
                 "is_distracted", "is_nodding",
             ]
@@ -95,8 +93,6 @@ def main():
                 warn.append("DROWSY")
             if data.get("is_yawning"):
                 warn.append("YAWN")
-            if data.get("is_yawn_frequent"):
-                warn.append("YAWN_FREQ")
             if data.get("is_distracted"):
                 warn.append("DISTRACT")
             if data.get("is_nodding"):
@@ -126,9 +122,6 @@ def main():
                     int(bool(data.get("blink"))),
                     int(bool(data.get("is_drowsy"))),
                     int(bool(data.get("is_yawning"))),
-                    int(bool(data.get("is_yawn_frequent"))),
-                    int(data.get("yawn_count_window", 0)),
-                    int(bool(data.get("yawn_event"))),
                     float(data.get("yaw", 0.0)),
                     float(data.get("pitch", 0.0)),
                     float(data.get("roll", 0.0)),

@@ -22,8 +22,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Dict
 
-from collections import deque
-
 
 @dataclass
 class FatigueState:
@@ -34,12 +32,6 @@ class FatigueState:
     blink: bool
     is_drowsy: bool
     is_yawning: bool
-    # 近一段时间内“哈欠次数过多”（例如 5 分钟 >= 3 次）
-    is_yawn_frequent: bool
-    # 当前滚动窗口内哈欠次数（用于 UI/日志展示）
-    yawn_count_window: int
-    # 本帧是否“新发生一次哈欠事件”（从非哈欠 -> 哈欠的上升沿）
-    yawn_event: bool
     drowsy_frames: int
     yawn_frames: int
 
@@ -80,19 +72,6 @@ class FatigueAnalyzer:
         self._mouth_frames_th = self._sec_to_frames(self.yawn_duration_sec, self.consecutive_frames_mouth)
         self._blink_frames_th = self._sec_to_frames(self.blink_max_sec, self.blink_max_frames)
 
-        # ====== 哈欠“频次”规则（你已确认：5 分钟 3 次） ======
-        # 【TODO(参数若变)】只需要改 config.yaml：
-        #   enable_yawn_rate / yawn_rate_window_sec / yawn_rate_count_threshold
-        self.enable_yawn_rate = bool(cfg.get("enable_yawn_rate", True))
-        self.yawn_rate_window_sec = float(cfg.get("yawn_rate_window_sec", 300.0))
-        self.yawn_rate_count_threshold = int(cfg.get("yawn_rate_count_threshold", 3))
-
-        # 用 deque 存“每次哈欠发生的时间戳（秒）”
-        # 这里默认用帧计数换算时间（更稳定，不依赖系统时钟）；如果 fps=0 会回退为 wall time。
-        self._frame_index = 0
-        self._yawn_events = deque()  # type: deque[float]
-        self._prev_is_yawning = False
-
         # 计数器
         self._eye_low_frames = 0
         self._mouth_high_frames = 0
@@ -122,10 +101,6 @@ class FatigueAnalyzer:
         self._is_drowsy = False
         self._is_yawning = False
 
-        self._frame_index = 0
-        self._yawn_events.clear()
-        self._prev_is_yawning = False
-
     def _ema(self, prev: Optional[float], cur: float) -> float:
         if prev is None:
             return cur
@@ -133,7 +108,6 @@ class FatigueAnalyzer:
 
     def update(self, ear: float, mar: float) -> FatigueState:
         """每帧调用一次。"""
-        self._frame_index += 1
         ear = float(ear)
         mar = float(mar)
 
@@ -175,35 +149,6 @@ class FatigueAnalyzer:
         else:
             self._is_yawning = False
 
-        # ============ 哈欠事件与“频次”规则（5 分钟 3 次） ============
-        # yawn_event：只在“进入哈欠状态”的那一帧触发一次
-        yawn_event = bool(self._is_yawning and (not self._prev_is_yawning))
-        self._prev_is_yawning = bool(self._is_yawning)
-
-        # 当前时间（秒）：优先用帧计数 / fps；若 fps 未知则用 wall time（较不稳定）
-        if self.fps and self.fps > 1.0:
-            now_sec = self._frame_index / self.fps
-        else:
-            # 【TODO(FPS待定)】如果你们未来把 fps 改回 0，此处会用 wall time，
-            # 建议仍尽量提供 fps，避免“跑得慢时时间变长”影响统计。
-            import time
-
-            now_sec = time.time()
-
-        # 记录事件
-        if self.enable_yawn and self.enable_yawn_rate and yawn_event:
-            self._yawn_events.append(now_sec)
-
-        # 滚动窗口清理
-        if self.enable_yawn_rate and self.yawn_rate_window_sec > 0:
-            while self._yawn_events and (now_sec - self._yawn_events[0]) > self.yawn_rate_window_sec:
-                self._yawn_events.popleft()
-
-        yawn_count_window = int(len(self._yawn_events)) if self.enable_yawn_rate else 0
-        is_yawn_frequent = bool(
-            self.enable_yawn and self.enable_yawn_rate and (yawn_count_window >= self.yawn_rate_count_threshold)
-        )
-
         return FatigueState(
             ear=ear,
             mar=mar,
@@ -212,9 +157,6 @@ class FatigueAnalyzer:
             blink=blink,
             is_drowsy=self._is_drowsy,
             is_yawning=self._is_yawning,
-            is_yawn_frequent=is_yawn_frequent,
-            yawn_count_window=yawn_count_window,
-            yawn_event=yawn_event,
             drowsy_frames=self._eye_low_frames,
             yawn_frames=self._mouth_high_frames,
         )

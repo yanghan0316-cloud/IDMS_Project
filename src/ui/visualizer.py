@@ -163,24 +163,19 @@ class Visualizer:
             mar = face_data.get("mar", 0.0)
             is_drowsy = bool(face_data.get("is_drowsy", False))
             is_yawning = bool(face_data.get("is_yawning", False))
-            is_yawn_frequent = bool(face_data.get("is_yawn_frequent", False))
-            yawn_count_window = int(face_data.get("yawn_count_window", 0) or 0)
             is_distracted = bool(face_data.get("is_distracted", False))
             is_nodding = bool(face_data.get("is_nodding", False))
             yaw = face_data.get("yaw", 0.0)
             pitch = face_data.get("pitch", 0.0)
             roll = face_data.get("roll", 0.0)
 
-            # 你已确认：5 分钟 3 次哈欠也算疲劳判据
-            is_fatigue = bool(is_drowsy or is_yawn_frequent)
-            color = self.warning_color if (is_fatigue or is_yawning or is_distracted or is_nodding) else self.normal_color
+            color = self.warning_color if (is_drowsy or is_yawning or is_distracted or is_nodding) else self.normal_color
 
             lines = [
                 f"EAR: {ear:.3f}",
                 f"MAR: {mar:.3f}",
-                f"Drowsy(eye): {is_drowsy}",
+                f"Drowsy: {is_drowsy}",
                 f"Yawning: {is_yawning}",
-                f"YawnFreq(5min>=3): {is_yawn_frequent} (cnt={yawn_count_window})",
                 f"Distracted: {is_distracted}",
                 f"Nodding: {is_nodding}",
                 f"Yaw/Pitch/Roll: {yaw:.1f}/{pitch:.1f}/{roll:.1f}",
@@ -194,7 +189,7 @@ class Visualizer:
                 for (x, y) in face_data["landmarks"]:
                     cv2.circle(frame, (int(x), int(y)), 1, self.normal_color, -1)
 
-            if is_fatigue:
+            if is_drowsy:
                 cv2.putText(frame, "FATIGUE WARNING!", (w - 310, 35),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, self.warning_color, 3)
             elif is_yawning:

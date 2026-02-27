@@ -38,7 +38,7 @@ python demo_internal.py
 - 按 `q` 退出
 - 窗口左下角会显示 FPS
 
-你已确认 **FPS=30**，我已经把 `config.yaml -> internal.fps` 填好了。
+> **拿到 FPS 后**，把 `config.yaml -> internal.fps` 填上，后面所有 “持续多少秒算报警” 都会更好调。
 
 ### 2.3 导出调参数据（CSV）
 
@@ -73,18 +73,16 @@ FaceMeshDetector.process(frame_bgr) -> dict
 - `ear`, `mar`
 - `blink`
 - `is_drowsy`, `is_yawning`
-- `is_yawn_frequent`：**5 分钟内哈欠次数 ≥3**（你们的频次判据）
 - `yaw`, `pitch`, `roll`
 - `is_distracted`, `is_nodding`
 
 ### 3.2 `src/internal/fatigue_logic.py`
 
-疲劳/哈欠/眨眼的状态机（含“5分钟3次哈欠”频次规则）。
+疲劳/哈欠/眨眼的状态机。
 
 你要调的阈值主要来自 `config.yaml -> internal`：
 - `ear_threshold`, `mar_threshold`
 - `drowsy_duration_sec`, `yawn_duration_sec`（推荐用秒）
-- `yawn_rate_window_sec`, `yawn_rate_count_threshold`（哈欠频次：默认 300 秒 / 3 次）
 - 如果 fps 未知，则用 `consecutive_frames_eye`, `consecutive_frames_mouth`（备用）
 
 ### 3.3 `src/internal/attention_logic.py`
