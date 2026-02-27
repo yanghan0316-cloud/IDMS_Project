@@ -1,6 +1,6 @@
 """demo_internal.py
 
-一个独立的舱内 Demo：只跑 MediaPipe + EAR/MAR + 状态机 + 头部姿态
+一个独立的舱内 Demo：只跑 MediaPipe + EAR/MAR + 状态机 + 头部姿态 + 声音报警
 
 运行：
     python demo_internal.py
@@ -9,7 +9,7 @@
 
 【TODO(参数待定)】
 - 如果你们还不确定 FPS：先跑这个 demo，看窗口左下角的 FPS，然后把 config.yaml 里的 internal.fps 填上。
-  填上后，你就可以用 *_duration_sec 来设置“持续多少秒算报警”，比直接写帧数更直观。
+  填上后，你就可以用 *_duration_sec 来设置"持续多少秒算报警"，比直接写帧数更直观。
 """
 
 import argparse
@@ -21,6 +21,7 @@ import cv2
 import yaml
 
 from src.internal.face_mesh import FaceMeshDetector
+from src.ui.alert_system import AudioAlerter
 
 
 def load_config(path: str = "config.yaml"):
@@ -40,6 +41,9 @@ def main():
     cap = cv2.VideoCapture(cfg["system"].get("camera_id_int", 0))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["system"].get("frame_width", 640))
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg["system"].get("frame_height", 480))
+
+    # ---------- 初始化声音报警 ----------
+    alerter = AudioAlerter(cfg.get("ui", {}))
 
     # CSV logger
     csv_fp = None
@@ -102,6 +106,20 @@ def main():
                 cv2.putText(frame, "WARNING: " + ",".join(warn), (frame.shape[1] - 420, 40),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 3)
 
+            # ---------- 声音报警 ----------
+            int_has_danger = bool(
+                data.get("has_face") and (
+                    data.get("is_drowsy")
+                    or data.get("is_yawning")
+                    or data.get("is_distracted")
+                    or data.get("is_nodding")
+                )
+            )
+            alert_result = alerter.update(int_danger=int_has_danger)
+            if alert_result.get("int_alert_fired"):
+                cv2.putText(frame, "ALERT SOUND!", (10, frame.shape[0] - 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
             # FPS 统计
             frames += 1
             if time.time() - t0 >= 1.0:
@@ -141,6 +159,7 @@ def main():
         detector.close()
         cap.release()
         cv2.destroyAllWindows()
+        alerter.close()
         if csv_fp is not None:
             csv_fp.close()
 

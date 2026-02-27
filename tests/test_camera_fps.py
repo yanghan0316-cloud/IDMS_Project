@@ -51,3 +51,4 @@ if __name__ == "__main__":
     # 假设你之前测出来舱内是0，舱外是1，可以在这里修改测试
     test_camera(0)
     test_camera(1)
+    test_camera(2)

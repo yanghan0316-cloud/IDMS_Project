@@ -56,6 +56,9 @@ except ImportError:
 from src.ui.alert_system import AudioAlerter
 
 
+import torch
+print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
+
 # ==================== 配置 & 参数解析 ====================
 
 def parse_args():

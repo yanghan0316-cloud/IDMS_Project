@@ -3,8 +3,8 @@
 # ==========================================
 
 system:
-  camera_id_ext: 1      # 舱外摄像头 (比如 USB 摄像头 A)
-  camera_id_int: 0      # 舱内摄像头 (比如 USB 摄像头 B)
+  camera_id_ext: 2      # 舱外摄像头
+  camera_id_int: 1      # 舱内摄像头
   frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
   queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
@@ -16,11 +16,10 @@ internal:
   mar_threshold: 0.60           # 嘴部纵横比阈值 (高于此值判定为张嘴)
 
   # ===== FPS / 持续时间（秒）配置 =====
-  # 【TODO(参数待定)】建议先运行 demo_internal.py 看 FPS，再把 fps 填上。
   # - fps=0 表示未知：系统会退化为使用下面的 *frames 阈值。
-  fps: 0
+  fps: 30
 
-  # 【TODO(参数待定)】以“秒”为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
+  # 以“秒”为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
   drowsy_duration_sec: 1.5      # 闭眼持续超过多少秒算疲劳
   yawn_duration_sec: 2.0        # 张嘴持续超过多少秒算哈欠
   blink_max_sec: 0.30           # 小于该持续时间的闭眼段，算作“眨眼”
@@ -50,20 +49,20 @@ internal:
   # ===== 分心 / 点头（头部姿态） =====
   # 【TODO(参数待定)】这些阈值和持续时间需要你们实测后微调
   # 分心：abs(yaw) 过阈值持续
-  distraction_yaw_threshold_deg: 30.0
-  distraction_yaw_release_deg: 20.0
-  distraction_duration_sec: 1.0
+  distraction_yaw_threshold_deg: 20.0
+  distraction_yaw_release_deg: 12.0
+  distraction_duration_sec: 0.8
   distraction_frames: 30
 
   # 点头/低头：pitch 过阈值持续
   # 【TODO(参数待定)】pitch 的正负号需要用 demo_internal.py 实测确认。
   # 默认假设：低头时 pitch 变小（更负），所以阈值设为 -20。
-  nod_pitch_threshold_deg: -20.0
-  nod_pitch_release_deg: -10.0
+  nod_pitch_threshold_deg: -25.0
+  nod_pitch_release_deg: -15.0
   nod_duration_sec: 1.0
   nod_frames: 30
 
-  pose_ema_alpha: 0.35           # yaw/pitch 的 EMA 平滑系数
+  pose_ema_alpha: 0.55           # yaw/pitch 的 EMA 平滑系数
 
 # --- 舱外监控 (External) ---
 external:
