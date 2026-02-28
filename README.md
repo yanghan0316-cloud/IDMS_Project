@@ -36,22 +36,26 @@
    pip install -r requirements.txt
    [注意：请务必锁定 OpenCV 的版本以防版本冲突]
  准备模型文件
+
 2. **请将 YOLOv8 的权重文件 yolov8n.pt 放置在项目根目录下。**
 
 3. **硬件与参数配置**
+
    打开全局配置文件 config.yaml，根据实际硬件情况修改摄像头 ID：
    system:
      camera_id_ext: 2      # 舱外摄像头 ID
      camera_id_int: 1      # 舱内摄像头 ID
 4. **运行系统**
+
    external的demo部分：
-    # 模式 1: 摄像头实时测试
+   
+     模式 1: 摄像头实时测试
     python demo_external.py --mode camera
 
-    # 模式 2: 用视频文件测试 (推荐 BDD100K 片段)
+     模式 2: 用视频文件测试 (推荐 BDD100K 片段)
     python demo_external.py --mode video --source E:\数据集\数据集\night-clear-1.mp4
 
-    # 模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
+     模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
     python demo_external.py --mode sim
 
    internal的demo部分：
