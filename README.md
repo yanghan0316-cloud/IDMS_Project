@@ -45,13 +45,13 @@
      camera_id_int: 1      # 舱内摄像头 ID
 4. **运行系统**
    external的demo部分：
-    # 模式 1: 摄像头实时测试
+     模式 1: 摄像头实时测试
     python demo_external.py --mode camera
 
-    # 模式 2: 用视频文件测试 (推荐 BDD100K 片段)
+     模式 2: 用视频文件测试 (推荐 BDD100K 片段)
     python demo_external.py --mode video --source E:\数据集\数据集\night-clear-1.mp4
 
-    # 模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
+     模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
     python demo_external.py --mode sim
 
    internal的demo部分：
