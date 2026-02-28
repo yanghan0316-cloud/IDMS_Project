@@ -17,6 +17,7 @@ from src.internal.face_mesh import FaceMeshDetector
 import torch
 print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
 
+
 def load_config(path="config.yaml"):
     """加载全局配置文件"""
     try:
@@ -25,6 +26,30 @@ def load_config(path="config.yaml"):
     except FileNotFoundError:
         print("[错误] 找不到 config.yaml，请确保它在项目根目录下！")
         exit(1)
+
+
+# ==================== 滑动窗口 FPS 计算器 ====================
+
+class FPSCounter:
+    """滑动窗口 FPS 计数器，比每秒重置计数器更平滑。"""
+
+    def __init__(self, window: int = 30):
+        self.window = window
+        self.timestamps: list[float] = []
+
+    def tick(self) -> None:
+        self.timestamps.append(time.time())
+        if len(self.timestamps) > self.window:
+            self.timestamps.pop(0)
+
+    @property
+    def fps(self) -> float:
+        if len(self.timestamps) < 2:
+            return 0.0
+        dt = self.timestamps[-1] - self.timestamps[0]
+        if dt <= 0:
+            return 0.0
+        return (len(self.timestamps) - 1) / dt
 
 
 def camera_producer(queue, camera_id, width, height, label="Cam", ready_event=None):
@@ -85,6 +110,8 @@ def main():
     cam_id_int = config['system'].get('camera_id_int', 1)
     cam_w = config['system']['frame_width']
     cam_h = config['system']['frame_height']
+
+    print(f"[System] 读取到的摄像头 ID: ext={cam_id_ext}, int={cam_id_int}")
 
     ext_ready = mp.Event()
     int_ready = mp.Event()
@@ -159,25 +186,42 @@ def main():
     # 让队列积累几帧
     time.sleep(0.5)
 
-    fps_time = time.time()
-    frame_count = 0
-    fps_display = 0
+    # --- 使用滑动窗口 FPS 计数器 ---
+    fps_counter = FPSCounter(window=30)
+    log_timer = time.time()  # 用于控制终端日志输出频率
 
+    # --- 帧时间戳，用于过期检测 ---
+    STALE_THRESHOLD = 1.0  # 超过 1 秒没有新帧，视为过期
     frame_ext = None
     frame_int = None
+    frame_ext_time = 0.0
+    frame_int_time = 0.0
 
     try:
         while True:
+            # ==================== 子进程崩溃检测 ====================
+            if use_ext and not p_camera_ext.is_alive():
+                print("[警告] 舱外摄像头进程已意外退出，禁用舱外通道。")
+                use_ext = False
+            if use_int and not p_camera_int.is_alive():
+                print("[警告] 舱内摄像头进程已意外退出，禁用舱内通道。")
+                use_int = False
+            if not use_ext and not use_int:
+                print("[错误] 双路摄像头均已断开，程序退出。")
+                break
+
             # 5. 非阻塞式获取双路最新帧
             if use_ext:
                 try:
                     frame_ext = frame_queue_ext.get_nowait()
+                    frame_ext_time = time.time()  # 修复 #2: 记录获取时间
                 except Empty:
                     pass
 
             if use_int:
                 try:
                     frame_int = frame_queue_int.get_nowait()
+                    frame_int_time = time.time()  # 修复 #2: 记录获取时间
                 except Empty:
                     pass
 
@@ -185,6 +229,13 @@ def main():
             if not has_any_frame:
                 time.sleep(0.01)
                 continue
+
+            # ==================== 过期帧检测 ====================
+            now = time.time()
+            ext_frame_valid = (use_ext and frame_ext is not None
+                               and (now - frame_ext_time) < STALE_THRESHOLD)
+            int_frame_valid = (use_int and frame_int is not None
+                               and (now - frame_int_time) < STALE_THRESHOLD)
 
             # ==========================================================
             #  核心处理流程 (Pipeline)
@@ -195,19 +246,28 @@ def main():
 
             # --- A. 舱外环境感知 ---
             vis_ext = None
-            if use_ext and frame_ext is not None:
+            if ext_frame_valid:
                 curr_frame_ext = frame_ext.copy()
                 raw_detections = yolo_detector.process(curr_frame_ext)
                 dist_detections = dist_estimator.calculate(raw_detections)
                 vehicle_data = collision_warner.process(dist_detections)
                 vis_ext = visualizer.draw_results(curr_frame_ext, face_data=None, vehicle_data=vehicle_data)
+            elif use_ext and frame_ext is not None:
+                # 帧已过期，显示灰色提示但不做 AI 推理
+                vis_ext = frame_ext.copy()
+                cv2.putText(vis_ext, "[EXT] Stale Frame", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # --- B. 舱内驾驶员监测 ---
             vis_int = None
-            if use_int and frame_int is not None:
+            if int_frame_valid:
                 curr_frame_int = frame_int.copy()
                 face_data = face_detector.process(curr_frame_int)
                 vis_int = visualizer.draw_results(curr_frame_int, face_data=face_data, vehicle_data=None)
+            elif use_int and frame_int is not None:
+                vis_int = frame_int.copy()
+                cv2.putText(vis_int, "[INT] Stale Frame", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # --- C. 拼接画面 ---
             if vis_ext is not None and vis_int is not None:
@@ -226,8 +286,10 @@ def main():
                 time.sleep(0.01)
                 continue
 
-            # 显示 FPS
-            cv2.putText(combined_frame, f"FPS: {fps_display}", (10, combined_frame.shape[0] - 10),
+            # --- 滑动窗口 FPS ---
+            fps_counter.tick()
+            cv2.putText(combined_frame, f"FPS: {fps_counter.fps:.1f}",
+                        (10, combined_frame.shape[0] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
             # --- D. 声音报警 ---
@@ -235,26 +297,35 @@ def main():
                 v.get('warning_level', 0) >= 2 for v in vehicle_data
             )
             int_has_danger = bool(
-                face_data and (
+                face_data and face_data.get('has_face') and (
                     face_data.get('is_drowsy')
                     or face_data.get('is_yawning')
                     or face_data.get('is_distracted')
                     or face_data.get('is_nodding')
                 )
             )
-            alerter.update(ext_danger=ext_has_danger, int_danger=int_has_danger)
+
+            # --- 使用 alerter 返回值，在画面上显示报警状态 ---
+            alert_result = alerter.update(ext_danger=ext_has_danger, int_danger=int_has_danger)
+
+            alert_y = 80
+            if alert_result.get("ext_alert_fired"):
+                cv2.putText(combined_frame, "!! COLLISION ALERT SOUND !!",
+                            (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                alert_y += 30
+            if alert_result.get("int_alert_fired"):
+                cv2.putText(combined_frame, "!! FATIGUE ALERT SOUND !!",
+                            (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             # 6. 显示最终拼接画面
             cv2.imshow('IDMS - Dual Camera Monitoring', combined_frame)
 
-            # 7. FPS 计算
-            frame_count += 1
-            if time.time() - fps_time >= 1.0:
-                fps_display = frame_count
-                frame_count = 0
-                fps_time = time.time()
+            # 7. 终端日志（每秒输出一次，避免刷屏）
+            if now - log_timer >= 1.0:
                 face_ok = bool(face_data and face_data.get('has_face')) if face_data else False
-                print(f"[Running] FPS: {fps_display} | Objects: {len(vehicle_data)} | Face: {face_ok}")
+                print(f"[Running] FPS: {fps_counter.fps:.1f} | "
+                      f"Objects: {len(vehicle_data)} | Face: {face_ok}")
+                log_timer = now
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
