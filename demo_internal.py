@@ -36,7 +36,13 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    detector = FaceMeshDetector(cfg.get("internal", {}))
+
+    # --- 关键修复：根据 UI 配置开启 landmarks 返回（与 main.py 保持一致） ---
+    cfg_internal = cfg.get("internal", {})
+    show_landmarks = bool(cfg.get("ui", {}).get("show_landmarks", False))
+    cfg_internal["return_landmarks"] = show_landmarks
+
+    detector = FaceMeshDetector(cfg_internal)
 
     cap = cv2.VideoCapture(cfg["system"].get("camera_id_int", 0))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg["system"].get("frame_width", 640))
@@ -44,6 +50,11 @@ def main():
 
     # ---------- 初始化声音报警 ----------
     alerter = AudioAlerter(cfg.get("ui", {}))
+
+    # 读取 UI 颜色配置
+    ui_cfg = cfg.get("ui", {})
+    normal_color = tuple(ui_cfg.get("normal_color", [0, 255, 0]))
+    warning_color = tuple(ui_cfg.get("warning_color", [0, 0, 255]))
 
     # CSV logger
     csv_fp = None
@@ -75,6 +86,11 @@ def main():
                 break
 
             data = detector.process(frame)
+
+            # --- 绘制面部网格关键点（与 main.py 的 Visualizer 一致） ---
+            if show_landmarks and data.get("landmarks"):
+                for (x, y) in data["landmarks"]:
+                    cv2.circle(frame, (int(x), int(y)), 1, normal_color, -1)
 
             # 画一些关键文字
             y = 28

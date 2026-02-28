@@ -37,7 +37,7 @@ internal:
   refine_landmarks: true
   min_detection_confidence: 0.5
   min_tracking_confidence: 0.5
-  return_landmarks: false       # 建议默认 false（省性能）；若要画网格点再开
+  return_landmarks: true       # 建议默认 false（省性能）；若要画网格点再开
 
   # ===== 开关（口罩/眼镜/夜间等场景可能需要） =====
   enable_drowsy: true
