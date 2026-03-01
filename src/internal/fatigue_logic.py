@@ -7,7 +7,6 @@ src.internal.fatigue_logic
 - is_yawning: 是否哈欠（张嘴时间过长）
 - blink: 是否眨眼（短暂闭眼事件，可选）
 
-【TODO(参数待定)】
 - 如果你们后续测得真实 FPS，请在 config.yaml 里填 internal.fps。
   这样你就可以用 *_duration_sec（秒）来设置阈值；否则会退化为使用 *frames。
 - 若驾驶员戴口罩导致嘴部关键点不稳定，可以在 config.yaml 里临时把 enable_yawn 设为 false。
@@ -49,7 +48,6 @@ class FatigueAnalyzer:
         self.mar_threshold = float(cfg.get("mar_threshold", 0.60))
 
         # ====== FPS / 秒 -> 帧 的转换 ======
-        # 【TODO(参数待定)】如果你们后续测得真实 FPS，建议在 config.yaml 里填 internal.fps
         self.fps = float(cfg.get("fps", 0.0) or 0.0)
 
         # 连续帧阈值（fallback）

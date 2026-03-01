@@ -20,7 +20,7 @@
     python demo_external.py --mode camera
 
     # 模式 2: 用视频文件测试 (推荐 BDD100K 片段)
-    python demo_external.py --mode video --source E:\数据集\数据集\night-clear-1.mp4
+    python demo_external.py --mode video --source E:\数据集\数据集\night-clear-2.mp4
 
     # 模式 3: 纯模拟测试 (无需任何硬件/模型，验证逻辑正确性)
     python demo_external.py --mode sim
@@ -461,7 +461,9 @@ class ExternalPipeline:
         else:
             pass
 
-        detections = self.collision_warn.process(detections)
+        # v2.1 修复: 传入当前帧宽度，确保横向车道判断基于正确的画面尺寸
+        frame_width = frame.shape[1] if frame is not None else None
+        detections = self.collision_warn.process(detections, frame_width=frame_width)
         return detections
 
 

@@ -11,7 +11,6 @@ src.internal.attention_logic
 
 配置项（来自 config.yaml 的 internal 部分）：
 
-【TODO(参数待定)】这些阈值/持续时间需要你们拿到真实 FPS、以及是否戴眼镜/口罩后再微调。
 - fps: 摄像头 FPS（填 0 或不填表示未知；会退化为直接使用 *frames 阈值）
 
 - distraction_yaw_threshold_deg: 触发分心的 yaw 角阈值（建议先用 30 度）
@@ -20,7 +19,6 @@ src.internal.attention_logic
 
 - nod_pitch_threshold_deg: 触发点头/低头的 pitch 角阈值
     注意：pitch 的正负号与相机/solvePnP 的坐标系有关。
-    【TODO(参数待定)】请用 demo_internal.py 观察“低头时 pitch 是变大还是变小”，再决定阈值符号。
 - nod_pitch_release_deg: 解除阈值（迟滞）
 - nod_duration_sec / nod_frames: 持续时间（秒）或帧数
 
@@ -53,7 +51,7 @@ class AttentionAnalyzer:
         cfg = config or {}
 
         # ====== FPS / 时长转换 ======
-        # 【TODO(参数待定)】如果你们后续测得真实 FPS，建议在 config.yaml 里填 internal.fps
+        # 如果你们后续测得真实 FPS，建议在 config.yaml 里填 internal.fps
         # 这样就能用 *_duration_sec 更直观地设置“持续多少秒算报警”。
         self.fps = float(cfg.get("fps", 0.0) or 0.0)
 
@@ -66,7 +64,7 @@ class AttentionAnalyzer:
         self.distraction_frames = int(cfg.get("distraction_frames", 30))
 
         # ====== 点头/低头 (Pitch) ======
-        # 【TODO(参数待定)】pitch 正负号需要你们实测。
+        # pitch 正负号需要你们实测。
         # 默认：低头时 pitch 变小（更负），所以阈值默认设为 -20。
         self.nod_pitch_threshold_deg = float(cfg.get("nod_pitch_threshold_deg", -20.0))
         self.nod_pitch_release_deg = float(cfg.get("nod_pitch_release_deg", -10.0))
@@ -136,7 +134,7 @@ class AttentionAnalyzer:
 
         # ============ 点头/低头判定（pitch 过阈值持续） ============
         # 默认逻辑：pitch 更小（更负）表示更低头。
-        # 【TODO(参数待定)】如果你们实测发现“低头时 pitch 变大”，那就把条件改成 pitch_use > nod_pitch_threshold_deg。
+        # 如果你们实测发现“低头时 pitch 变大”，那就把条件改成 pitch_use > nod_pitch_threshold_deg。
         if pitch_use < self.nod_pitch_threshold_deg:
             self._nod_cnt += 1
         else:

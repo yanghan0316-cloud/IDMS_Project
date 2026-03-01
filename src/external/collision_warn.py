@@ -4,6 +4,9 @@
 通过帧间距离差计算相对速度 → TTC → 风险分级。
 
 v2: 增加横向车道相关性判断，避免相邻车道车辆误报。
+v2.1: 修复中距离接近场景无法触发 CAUTION 的问题。
+      - 新增基于 TTC 的 CAUTION 区间 (ttc < safe_distance_time)
+      - 降低 rel_speed EMA 惯性 (0.2→0.4)
 """
 
 import time
@@ -23,23 +26,6 @@ class CollisionWarner:
     }
 
     def __init__(self, config):
-        """
-        初始化碰撞预警系统
-
-        Args:
-            config (dict): 对应 config.yaml 的 external 部分
-                ttc_threshold (float): TTC 红色警报阈值（秒），默认 1.5
-                safe_distance_time (float): 安全跟车时间（秒），默认 2.0
-                match_pixel_base (int): 匹配像素基础阈值，默认 80
-                cooldown_sec (float): 同目标最高警报冷却时间（秒），默认 3.0
-
-                # ====== v2 新增: 横向车道相关性参数 ======
-                lane_center_ratio (float): 自车道中心在画面中的水平位置比例，默认 0.5
-                lane_full_width_ratio (float): 自车道完整宽度占画面宽度的比例，默认 0.30
-                    → bbox 中心落在 [center - width/2, center + width/2] 内视为"同车道"
-                lane_relevance_mode (str): 'hard' 硬切 / 'soft' 软衰减，默认 'soft'
-                lateral_speed_threshold (float): 横向速度阈值(像素/秒)，超过则降级，默认 120.0
-        """
         self.ttc_threshold = config.get('ttc_threshold', 1.5)
         self.safe_distance_time = config.get('safe_distance_time', 2.0)
         self.match_pixel_base = config.get('match_pixel_base', 80)
@@ -66,54 +52,30 @@ class CollisionWarner:
     # ------------------------------------------------------------------
 
     def _compute_lane_relevance(self, box):
-        """
-        计算目标与自车道的相关性得分。
-
-        原理:
-            以画面水平中心为参考，目标 bbox 中心越偏离自车道区域，
-            得分越低。同时考虑目标的宽度（近处大目标即使中心稍偏
-            也可能横跨自车道）。
-
-        Returns:
-            float: 0.0 ~ 1.0, 1.0 = 完全在自车道内
-        """
         x1, y1, x2, y2 = box
         bbox_cx = (x1 + x2) / 2.0
         bbox_w = x2 - x1
 
-        # 自车道在画面中的像素范围
         lane_cx = self.frame_width * self.lane_center_ratio
         lane_half_w = self.frame_width * self.lane_full_width_ratio / 2.0
 
-        # bbox 中心相对车道中心的偏移
         offset = abs(bbox_cx - lane_cx)
-
-        # 考虑 bbox 自身宽度：大目标即使中心偏移也可能覆盖自车道
-        # 有效偏移 = 中心偏移 - bbox半宽（但不低于0）
         effective_offset = max(0.0, offset - bbox_w / 2.0)
 
         if self.lane_relevance_mode == 'hard':
-            # 硬切模式：bbox 任何部分与车道区域重叠则为 1.0，否则 0.0
             return 1.0 if effective_offset < lane_half_w else 0.0
 
         # 软衰减模式 (默认)
         if effective_offset <= lane_half_w:
             return 1.0
         else:
-            # 超出车道区域后线性衰减，超出 1.5 倍车道宽度时降到 0
             overshoot = effective_offset - lane_half_w
-            fade_range = lane_half_w * 1.5  # 衰减区间
+            fade_range = lane_half_w * 1.5
             if fade_range <= 0:
                 return 0.0
             return max(0.0, 1.0 - overshoot / fade_range)
 
     def _compute_lateral_speed(self, current_box, matched_box, time_diff):
-        """
-        计算帧间横向速度 (像素/秒)
-
-        Returns:
-            float: 横向速度绝对值
-        """
         if time_diff <= 0:
             return 0.0
         curr_cx = (current_box[0] + current_box[2]) / 2.0
@@ -132,11 +94,7 @@ class CollisionWarner:
 
         Returns:
             list[dict]: 增加以下字段:
-                rel_speed (float): 相对速度 m/s（正=靠近）
-                ttc (float): 碰撞时间（秒）
-                warning_level (int): 0/1/2
-                warning_text (str): SAFE/CAUTION/DANGER
-                lane_relevance (float): 车道相关性 0~1 (v2 新增, 供调试)
+                rel_speed, ttc, warning_level, warning_text, lane_relevance
         """
         current_time = time.time()
         time_diff = current_time - self.last_timestamp
@@ -178,10 +136,11 @@ class CollisionWarner:
 
             if matched and matched.get('distance', -1) > 0:
                 # 1. 计算相对速度 (EMA 平滑)
+                #    v2.1: 降低惯性 0.2→0.4，使速度更快响应变化
                 delta_dist = matched['distance'] - obj['distance']
                 raw_rel_speed = delta_dist / time_diff
                 prev_speed = matched.get('rel_speed', 0.0)
-                rel_speed = 0.2 * raw_rel_speed + 0.8 * prev_speed
+                rel_speed = 0.4 * raw_rel_speed + 0.6 * prev_speed
                 obj['rel_speed'] = round(rel_speed, 2)
 
                 # ====== v2: 计算横向速度 ======
@@ -190,18 +149,8 @@ class CollisionWarner:
                 )
 
                 # 2. 计算当前帧的原始风险等级
-                raw_level = self.LEVEL_SAFE
-                if rel_speed > 1.5:
-                    ttc = obj['distance'] / rel_speed
-                    obj['ttc'] = round(ttc, 2)
-                    if obj['distance'] < 45.0:
-                        if ttc < self.ttc_threshold:
-                            raw_level = self.LEVEL_DANGER
-                        elif obj['distance'] < (rel_speed * self.safe_distance_time):
-                            raw_level = self.LEVEL_CAUTION
-                else:
-                    if obj['distance'] < 2.0:
-                        raw_level = self.LEVEL_CAUTION
+                #    v2.1: 重构分级逻辑，确保中距离接近也能触发 CAUTION
+                raw_level = self._evaluate_risk(obj, rel_speed)
 
                 # ====== v2 核心: 根据横向信息降级 ======
                 raw_level = self._apply_lateral_downgrade(
@@ -221,10 +170,26 @@ class CollisionWarner:
                 obj['streak'] = streak
 
                 # 4. 决定最终输出等级
-                CONFIRM_FRAMES = 3
-                if streak < CONFIRM_FRAMES:
-                    obj['warning_level'] = matched.get('warning_level', self.LEVEL_SAFE)
+                #    v2.2: 非对称防抖 —— 升级快(2帧)、降级慢(5帧)
+                #    防止速度在阈值边缘震荡时输出闪烁
+                CONFIRM_UP = 2    # 升级确认帧数（SAFE→CAUTION, CAUTION→DANGER）
+                CONFIRM_DOWN = 5  # 降级确认帧数（DANGER→CAUTION, CAUTION→SAFE）
+
+                prev_out = matched.get('warning_level', self.LEVEL_SAFE)
+                if raw_level > prev_out:
+                    # 试图升级：需要较少帧确认
+                    if streak >= CONFIRM_UP:
+                        obj['warning_level'] = raw_level
+                    else:
+                        obj['warning_level'] = prev_out
+                elif raw_level < prev_out:
+                    # 试图降级：需要更多帧确认
+                    if streak >= CONFIRM_DOWN:
+                        obj['warning_level'] = raw_level
+                    else:
+                        obj['warning_level'] = prev_out
                 else:
+                    # 等级不变
                     obj['warning_level'] = raw_level
 
             # --- 冷却期逻辑 ---
@@ -244,31 +209,62 @@ class CollisionWarner:
 
         return detections
 
+    def _evaluate_risk(self, obj, rel_speed):
+        """
+        v2.2: 重构后的风险分级逻辑
+
+        分级策略:
+            DANGER:  TTC < ttc_threshold 且距离 < 45m
+            CAUTION: 以下任一条件满足:
+                     (a) TTC < safe_distance_time * 3 且距离 < 45m
+                     (b) 距离 < safe_distance_time * rel_speed (原有逻辑)
+                     (c) rel_speed >= 1.5 且距离 < 25m (中距离持续接近)
+                     (d) 距离 < 2.0m (静止近距离)
+            SAFE:    其他情况
+        """
+        distance = obj['distance']
+
+        if rel_speed > 1.0:
+            ttc = distance / rel_speed
+            obj['ttc'] = round(ttc, 2)
+
+            if distance < 45.0:
+                # DANGER: TTC 极小
+                if ttc < self.ttc_threshold:
+                    return self.LEVEL_DANGER
+
+                # CAUTION: TTC 在警告区间内
+                # v2.2: 扩大为 safe_distance_time * 3，覆盖中距离接近场景
+                if ttc < self.safe_distance_time * 3:
+                    return self.LEVEL_CAUTION
+
+                # CAUTION: 不满足安全跟车距离
+                if distance < (rel_speed * self.safe_distance_time):
+                    return self.LEVEL_CAUTION
+
+            # CAUTION: 中距离区域有明显接近趋势
+            # v2.2: 从 > 2.0 降至 >= 1.5，避免速度在 2.0 附近震荡导致闪烁
+            if rel_speed >= 1.5 and distance < 25.0:
+                return self.LEVEL_CAUTION
+
+        else:
+            # 速度很低或在远离，但距离极近
+            if distance < 2.0:
+                return self.LEVEL_CAUTION
+
+        return self.LEVEL_SAFE
+
     def _apply_lateral_downgrade(self, raw_level, lane_relevance, lateral_speed):
-        """
-        v2 核心逻辑: 根据横向车道相关性和横向速度对风险等级做降级。
-
-        规则:
-            1. lane_relevance == 0 → 完全不在自车道，最高只给 SAFE
-            2. lane_relevance < 0.5 → 不在自车道核心区域，DANGER 降为 CAUTION
-            3. lateral_speed > 阈值 → 目标在快速横向移动（换道/经过），降一级
-
-        这样相邻车道正常行驶的车辆即使纵向距离在缩短，也不会触发红色警报。
-        """
         if raw_level == self.LEVEL_SAFE:
             return raw_level
 
-        # 规则 1: 完全不相关（偏得太远）
         if lane_relevance <= 0.0:
             return self.LEVEL_SAFE
 
-        # 规则 2: 弱相关（在车道边缘或相邻车道）
         if lane_relevance < 0.5:
             if raw_level == self.LEVEL_DANGER:
                 return self.LEVEL_CAUTION
-            # CAUTION 保持（提醒驾驶员旁边有车）
 
-        # 规则 3: 横向速度过大 → 目标在横穿/换道，降一级
         if lateral_speed > self.lateral_speed_threshold:
             if raw_level == self.LEVEL_DANGER:
                 return self.LEVEL_CAUTION
@@ -278,11 +274,6 @@ class CollisionWarner:
         return raw_level
 
     def _find_best_match(self, current_obj, old_objs):
-        """
-        自适应中心点距离匹配
-
-        匹配阈值 = base + box对角线长度 × 0.3
-        """
         if not old_objs:
             return None
 

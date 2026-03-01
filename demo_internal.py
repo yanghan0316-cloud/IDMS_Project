@@ -7,9 +7,7 @@
     python demo_internal.py --csv logs/internal.csv
 按 q 退出。
 
-【TODO(参数待定)】
-- 如果你们还不确定 FPS：先跑这个 demo，看窗口左下角的 FPS，然后把 config.yaml 里的 internal.fps 填上。
-  填上后，你就可以用 *_duration_sec 来设置"持续多少秒算报警"，比直接写帧数更直观。
+
 """
 
 import argparse

@@ -19,12 +19,12 @@ internal:
   # - fps=0 表示未知：系统会退化为使用下面的 *frames 阈值。
   fps: 30
 
-  # 以“秒”为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
+  # 以"秒"为单位的持续时间阈值（更直观）。只有当 fps>0 时才会生效。
   drowsy_duration_sec: 1.5      # 闭眼持续超过多少秒算疲劳
   yawn_duration_sec: 2.0        # 张嘴持续超过多少秒算哈欠
-  blink_max_sec: 0.30           # 小于该持续时间的闭眼段，算作“眨眼”
+  blink_max_sec: 0.30           # 小于该持续时间的闭眼段，算作"眨眼"
 
-  # ===== 备用的“帧数阈值”（fps 未知时用这个） =====
+  # ===== 备用的"帧数阈值"（fps 未知时用这个） =====
   consecutive_frames_eye: 45    # 闭眼持续帧数报警阈值 (约1.5秒 @30FPS)
   consecutive_frames_mouth: 60  # 哈欠持续帧数阈值 (约2.0秒 @30FPS)
   blink_max_frames: 8           # 眨眼的最大帧数 (约0.27秒 @30FPS)
@@ -41,13 +41,13 @@ internal:
 
   # ===== 开关（口罩/眼镜/夜间等场景可能需要） =====
   enable_drowsy: true
-  # 【TODO(参数待定)】若驾驶员戴口罩导致嘴部关键点不稳定，可先把 enable_yawn 设为 false
+  # 若驾驶员戴口罩导致嘴部关键点不稳定，可先把 enable_yawn 设为 false
   enable_yawn: true
   enable_head_pose: true        # solvePnP 头部姿态
   enable_attention: true        # 分心/点头逻辑（依赖头部姿态）
 
   # ===== 分心 / 点头（头部姿态） =====
-  # 【TODO(参数待定)】这些阈值和持续时间需要你们实测后微调
+  # 这些阈值和持续时间需要实测后微调
   # 分心：abs(yaw) 过阈值持续
   distraction_yaw_threshold_deg: 20.0
   distraction_yaw_release_deg: 12.0
@@ -55,7 +55,7 @@ internal:
   distraction_frames: 30
 
   # 点头/低头：pitch 过阈值持续
-  # 【TODO(参数待定)】pitch 的正负号需要用 demo_internal.py 实测确认。
+  # pitch 的正负号需要用 demo_internal.py 实测确认。
   # 默认假设：低头时 pitch 变小（更负），所以阈值设为 -20。
   nod_pitch_threshold_deg: -25.0
   nod_pitch_release_deg: -15.0
@@ -93,7 +93,7 @@ external:
   # --- 横向车道相关性 ---
   lane_center_ratio: 0.5         # 自车道中心在画面中的水平位置 (0.5=正中)
   lane_full_width_ratio: 0.25    # 自车道占画面宽度的比例 (0.30=中间30%为自车道)
-  lane_relevance_mode: "hard"    # 'soft'=软衰减(推荐) / 'hard'=硬切
+  lane_relevance_mode: "soft"    # 'soft'=软衰减(推荐) / 'hard'=硬切
   lateral_speed_threshold: 120.0 # 横向速度阈值(像素/秒)，超过则降级
 
 # --- 界面与报警 (UI) ---
