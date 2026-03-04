@@ -4,7 +4,7 @@
 
 system:
   camera_id_ext: 2      # 舱外摄像头
-  camera_id_int: 1      # 舱内摄像头
+  camera_id_int: 0      # 舱内摄像头
   frame_width: 640              # 降低分辨率以提高FPS
   frame_height: 480
   queue_size: 2                 # 队列长度限制为2，丢弃旧帧以保证实时性
@@ -48,19 +48,27 @@ internal:
 
   # ===== 分心 / 点头（头部姿态） =====
   # 这些阈值和持续时间需要实测后微调
+
   # 分心：abs(yaw) 过阈值持续
   distraction_yaw_threshold_deg: 20.0
   distraction_yaw_release_deg: 12.0
   distraction_duration_sec: 0.8
   distraction_frames: 30
+  # v3 新增: Grace period（帧数）
+  # 解决极端转头时 MediaPipe/PnP 输出 yaw 跳变的问题。
+  # 当 yaw 短暂跌落到阈值以下（因为关键点质量下降），最多容忍这么多帧
+  # 不清零计数器，从而让大幅转头也能正确触发分心报警。
+  distraction_grace_frames: 8
 
   # 点头/低头：pitch 过阈值持续
   # pitch 的正负号需要用 demo_internal.py 实测确认。
-  # 默认假设：低头时 pitch 变小（更负），所以阈值设为 -20。
-  nod_pitch_threshold_deg: -25.0
-  nod_pitch_release_deg: -15.0
-  nod_duration_sec: 1.0
-  nod_frames: 30
+  # 默认假设：低头时 pitch 变小（更负），所以阈值设为 -30。
+  # v3 调整: 阈值更严格 (-25 → -30)，持续时间更长 (1.0s → 2.0s)，
+  #          避免轻微点头就触发误报。
+  nod_pitch_threshold_deg: -30.0
+  nod_pitch_release_deg: -18.0
+  nod_duration_sec: 2.0
+  nod_frames: 60
 
   pose_ema_alpha: 0.55           # yaw/pitch 的 EMA 平滑系数
 

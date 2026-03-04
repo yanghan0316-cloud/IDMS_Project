@@ -7,7 +7,9 @@
     python demo_internal.py --csv logs/internal.csv
 按 q 退出。
 
-
+v3 更新:
+    - 显示 yaw_grace_cnt 和 nod_frames，方便调参
+    - CSV 增加 yaw_grace_cnt 列
 """
 
 import argparse
@@ -69,6 +71,7 @@ def main():
             "yaw", "pitch", "roll",
             "is_distracted", "is_nodding",
             "drowsy_frames", "yawn_frames", "distracted_frames", "nod_frames",
+            "yaw_grace_cnt",
         ])
         print(f"[Demo] CSV logging enabled: {out_path}")
 
@@ -98,11 +101,13 @@ def main():
                 "blink", "is_drowsy", "is_yawning",
                 "yaw", "pitch", "roll",
                 "is_distracted", "is_nodding",
+                "distracted_frames", "nod_frames",
+                "yaw_grace_cnt",
             ]
             for k in show_keys:
                 v = data.get(k)
                 txt = f"{k}: {v:.3f}" if isinstance(v, float) else f"{k}: {v}"
-                cv2.putText(frame, txt, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cv2.putText(frame, txt, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
                 y += 22
 
             # 报警文字
@@ -163,6 +168,7 @@ def main():
                     int(data.get("yawn_frames", 0)),
                     int(data.get("distracted_frames", 0)),
                     int(data.get("nod_frames", 0)),
+                    int(data.get("yaw_grace_cnt", 0)),
                 ])
 
             cv2.imshow("Internal Demo (q to quit)", frame)

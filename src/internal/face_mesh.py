@@ -133,7 +133,7 @@ class FaceMeshDetector:
         frame_rgb.flags.writeable = True
 
         if not results.multi_face_landmarks:
-            # 没检测到脸就重置计数器，避免“离开画面后仍报警”
+            # 没检测到脸就重置计数器，避免"离开画面后仍报警"
             self.analyzer.reset()
             self.attention.reset()
             return {
@@ -176,16 +176,19 @@ class FaceMeshDetector:
         is_nodding = False
         distracted_frames = 0
         nod_frames = 0
+        yaw_grace_cnt = 0
         if self.enable_head_pose and self.enable_attention and pose is not None:
             att = self.attention.update(yaw=yaw, pitch=pitch)
             is_distracted = bool(att.is_distracted)
             is_nodding = bool(att.is_nodding)
             distracted_frames = int(att.distracted_frames)
             nod_frames = int(att.nod_frames)
+            # v3: 暴露 grace 计数器供调试
+            yaw_grace_cnt = int(self.attention._yaw_grace_cnt)
             # 使用 EMA 后的角度更适合展示
             yaw, pitch = float(att.yaw_ema), float(att.pitch_ema)
         else:
-            # 没有姿态结果时，重置计数器，避免上一帧状态“粘住”
+            # 没有姿态结果时，重置计数器，避免上一帧状态"粘住"
             self.attention.reset()
 
         # --- 输出 ---
@@ -204,6 +207,7 @@ class FaceMeshDetector:
             "is_nodding": bool(is_nodding),
             "distracted_frames": int(distracted_frames),
             "nod_frames": int(nod_frames),
+            "yaw_grace_cnt": int(yaw_grace_cnt),
             "has_face": True,
         }
 

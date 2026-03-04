@@ -168,6 +168,10 @@ class Visualizer:
             yaw = face_data.get("yaw", 0.0)
             pitch = face_data.get("pitch", 0.0)
             roll = face_data.get("roll", 0.0)
+            # v3: 获取调试用帧计数器
+            distracted_frames = face_data.get("distracted_frames", 0)
+            nod_frames = face_data.get("nod_frames", 0)
+            yaw_grace_cnt = face_data.get("yaw_grace_cnt", 0)
 
             color = self.warning_color if (is_drowsy or is_yawning or is_distracted or is_nodding) else self.normal_color
 
@@ -176,14 +180,14 @@ class Visualizer:
                 f"MAR: {mar:.3f}",
                 f"Drowsy: {is_drowsy}",
                 f"Yawning: {is_yawning}",
-                f"Distracted: {is_distracted}",
-                f"Nodding: {is_nodding}",
+                f"Distracted: {is_distracted} (f:{distracted_frames} g:{yaw_grace_cnt})",
+                f"Nodding: {is_nodding} (f:{nod_frames})",
                 f"Yaw/Pitch/Roll: {yaw:.1f}/{pitch:.1f}/{roll:.1f}",
             ]
             y0 = 25
             for i, line in enumerate(lines):
                 cv2.putText(frame, line, (10, y0 + i * 22),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
 
             if self.show_landmarks and "landmarks" in face_data:
                 for (x, y) in face_data["landmarks"]:
