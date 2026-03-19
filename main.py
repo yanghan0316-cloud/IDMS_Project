@@ -14,6 +14,9 @@ from src.external.collision_warn import CollisionWarner
 from src.ui.visualizer import Visualizer
 from src.internal.face_mesh import FaceMeshDetector
 
+# --- v4 新增: 多模态融合引擎 ---
+from src.core.risk_fusion import RiskFusionEngine
+
 import torch
 print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
 
@@ -181,6 +184,9 @@ def main():
         config['internal']['return_landmarks'] = bool(config.get('ui', {}).get('show_landmarks', False))
         face_detector = FaceMeshDetector(config['internal'])
 
+    # v4 新增: 初始化多模态融合引擎
+    fusion_engine = RiskFusionEngine(config.get('fusion', {}))
+
     print("[System] 系统就绪！按 'q' 键退出。")
 
     # 让队列积累几帧
@@ -214,14 +220,14 @@ def main():
             if use_ext:
                 try:
                     frame_ext = frame_queue_ext.get_nowait()
-                    frame_ext_time = time.time()  # 修复 #2: 记录获取时间
+                    frame_ext_time = time.time()
                 except Empty:
                     pass
 
             if use_int:
                 try:
                     frame_int = frame_queue_int.get_nowait()
-                    frame_int_time = time.time()  # 修复 #2: 记录获取时间
+                    frame_int_time = time.time()
                 except Empty:
                     pass
 
@@ -292,22 +298,54 @@ def main():
                         (10, combined_frame.shape[0] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-            # --- D. 声音报警 ---
-            ext_has_danger = any(
-                v.get('warning_level', 0) >= 2 for v in vehicle_data
-            )
-            int_has_danger = bool(
-                face_data and face_data.get('has_face') and (
-                    face_data.get('is_drowsy')
-                    or face_data.get('is_yawning')
-                    or face_data.get('is_distracted')
-                    or face_data.get('is_nodding')
-                )
+            # --- D. 多模态融合评估 ---
+            fusion_result = fusion_engine.evaluate(
+                vehicle_data=vehicle_data,
+                face_data=face_data,
             )
 
-            # --- 使用 alerter 返回值，在画面上显示报警状态 ---
-            alert_result = alerter.update(ext_danger=ext_has_danger, int_danger=int_has_danger)
+            # 将融合结果传给报警模块
+            ext_has_danger = fusion_result.ext_score >= 0.7
+            int_has_danger = fusion_result.int_score >= 0.5
 
+            alert_result = alerter.update(
+                ext_danger=ext_has_danger,
+                int_danger=int_has_danger,
+            )
+
+            # --- 在画面上显示融合风险信息 ---
+            risk_color_map = {
+                0: (0, 200, 0),      # SAFE - 绿色
+                1: (0, 200, 255),    # LOW - 黄色
+                2: (0, 128, 255),    # HIGH - 橙色
+                3: (0, 0, 255),      # CRITICAL - 红色
+            }
+            risk_color = risk_color_map.get(fusion_result.fused_level, (0, 200, 0))
+
+            # 风险评分条（右上角）
+            bar_x = combined_frame.shape[1] - 260
+            bar_y = 10
+            bar_w = 200
+            bar_h = 16
+            cv2.rectangle(combined_frame, (bar_x, bar_y),
+                          (bar_x + bar_w, bar_y + bar_h), (60, 60, 60), -1)
+            fill_w = int(bar_w * fusion_result.fused_score)
+            cv2.rectangle(combined_frame, (bar_x, bar_y),
+                          (bar_x + fill_w, bar_y + bar_h), risk_color, -1)
+            cv2.putText(combined_frame,
+                        f"RISK: {fusion_result.fused_text} ({fusion_result.fused_score:.2f})",
+                        (bar_x, bar_y + bar_h + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, risk_color, 2)
+
+            # 细分分值（调参用）
+            cv2.putText(combined_frame,
+                        f"Ext:{fusion_result.ext_score:.2f} "
+                        f"Int:{fusion_result.int_score:.2f} "
+                        f"Cross:{fusion_result.cross_score:.2f}",
+                        (bar_x, bar_y + bar_h + 36),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 180, 180), 1)
+
+            # 报警文字
             alert_y = 80
             if alert_result.get("ext_alert_fired"):
                 cv2.putText(combined_frame, "!! COLLISION ALERT SOUND !!",
@@ -317,14 +355,32 @@ def main():
                 cv2.putText(combined_frame, "!! FATIGUE ALERT SOUND !!",
                             (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
+            # CRITICAL 级别：全屏红框闪烁
+            if fusion_result.fused_level >= 3:
+                if int(time.time() * 4) % 2 == 0:
+                    h_f, w_f = combined_frame.shape[:2]
+                    cv2.rectangle(combined_frame, (0, 0),
+                                  (w_f - 1, h_f - 1), (0, 0, 255), 4)
+
             # 6. 显示最终拼接画面
             cv2.imshow('IDMS - Dual Camera Monitoring', combined_frame)
 
             # 7. 终端日志（每秒输出一次，避免刷屏）
             if now - log_timer >= 1.0:
                 face_ok = bool(face_data and face_data.get('has_face')) if face_data else False
+                perclos_str = ""
+                blink_str = ""
+                if face_data and face_data.get('has_face'):
+                    perclos_str = f" P:{face_data.get('perclos', 0):.1%}"
+                    blink_str = f" BF:{face_data.get('blink_freq', 0):.0f}/m"
+
                 print(f"[Running] FPS: {fps_counter.fps:.1f} | "
-                      f"Objects: {len(vehicle_data)} | Face: {face_ok}")
+                      f"Obj: {len(vehicle_data)} | Face: {face_ok}{perclos_str}{blink_str} | "
+                      f"Risk: {fusion_result.fused_text} "
+                      f"({fusion_result.fused_score:.2f}) "
+                      f"[E:{fusion_result.ext_score:.2f} "
+                      f"I:{fusion_result.int_score:.2f} "
+                      f"X:{fusion_result.cross_score:.2f}]")
                 log_timer = now
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -333,7 +389,6 @@ def main():
     except KeyboardInterrupt:
         print("\n[System] 用户中断，正在停止...")
     except Exception as e:
-        # ====== 关键：打印实际的崩溃原因，不再静默退出 ======
         print(f"\n{'='*60}")
         print(f"[错误] 主循环发生异常:")
         print(f"{'='*60}")

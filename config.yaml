@@ -72,6 +72,17 @@ internal:
 
   pose_ema_alpha: 0.55           # yaw/pitch 的 EMA 平滑系数
 
+    # ===== v4 新增: PERCLOS 配置 =====
+  # PERCLOS (Percentage of Eye Closure) 是 FHWA 认定的疲劳检测金标准。
+  # 计算方式: 在滑动窗口内，EAR 低于 ear_threshold 的帧占总帧数的比例。
+  perclos_window_sec: 60.0        # PERCLOS 统计窗口长度（秒）
+  perclos_threshold: 0.15         # PERCLOS 报警阈值 (0.15 = 眼睛闭合超过 15% 的时间)
+ 
+  # ===== v4 新增: 眨眼频率配置 =====
+  # 正常人每分钟眨眼 15-20 次，疲劳时升高至 25-30 次。
+  blink_freq_window_sec: 60.0    # 眨眼频率统计窗口（秒）
+  blink_freq_high_threshold: 25  # 高频眨眼报警阈值（次/分钟）
+
 # --- 舱外监控 (External) ---
 external:
   # --- YOLOv8 配置 ---
@@ -116,3 +127,32 @@ ui:
     consecutive_frames: 2       # 连续几帧 DANGER 才报警
     cooldown_sec: 3.0           # 报警后冷却时间（秒），避免重复轰炸
     volume: 0.7                 # 音量 0.0~1.0
+
+  # --- 多模态融合 (Fusion) ---
+fusion:
+  # 融合权重（三者之和建议 = 1.0）
+  w_ext: 0.35               # 舱外碰撞信号权重
+  w_int: 0.35               # 舱内驾驶员状态权重
+  w_cross: 0.30             # 交叉项权重（核心创新！）
+ 
+  # 风险等级阈值 [LOW, HIGH, CRITICAL]
+  level_thresholds: [0.25, 0.50, 0.75]
+ 
+  # 舱外评分映射
+  ttc_danger: 1.5            # TTC 低于此值 → ext_score=1.0
+  ttc_safe: 6.0              # TTC 高于此值 → ext_score=0.0
+  dist_danger: 3.0           # 距离低于此值 → dist_score=1.0
+  dist_safe: 30.0            # 距离高于此值 → dist_score=0.0
+ 
+  # 舱内各子指标权重（加起来 = 1.0）
+  int_w_drowsy: 0.40         # 疲劳（最严重）
+  int_w_yawning: 0.15        # 哈欠
+  int_w_distracted: 0.30     # 分心
+  int_w_nodding: 0.15        # 点头
+ 
+  # EAR 连续性评分参数（借用 internal 段的值）
+  ear_threshold: 0.22
+  ear_safe: 0.30
+ 
+  # 融合分值 EMA 平滑
+  ema_alpha: 0.4

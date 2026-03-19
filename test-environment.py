@@ -26,6 +26,6 @@ print("✅ MediaPipe 导入成功")
 from ultralytics import YOLO
 print("✅ YOLOv8 导入成功")
 
-print("\n恭喜！所有环境配置完美，可以开始写代码了！")
+print("\n恭喜！所有环境配置完美！")
 
 
