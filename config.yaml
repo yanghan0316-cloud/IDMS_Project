@@ -50,8 +50,8 @@ internal:
   # 这些阈值和持续时间需要实测后微调
 
   # 分心：abs(yaw) 过阈值持续
-  distraction_yaw_threshold_deg: 20.0
-  distraction_yaw_release_deg: 12.0
+  distraction_yaw_threshold_deg: 30.0
+  distraction_yaw_release_deg: 22.0
   distraction_duration_sec: 0.8
   distraction_frames: 30
   # v3 新增: Grace period（帧数）

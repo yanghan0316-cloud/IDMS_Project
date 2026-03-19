@@ -1,27 +1,27 @@
 """
 test_risk_fusion.py
 
-ÑéÖ¤¶àÄ£Ì¬ÈÚºÏÒıÇæµÄºËĞÄĞĞÎª:
-    1. µ¥Â·²ÕÍâ¸ßÎ£ ¡ú HIGH£¨²»ÊÇ CRITICAL£©
-    2. µ¥Â·²ÕÄÚ¸ßÎ£ ¡ú HIGH£¨²»ÊÇ CRITICAL£©
-    3. Ë«Â·Í¬Ê±¸ßÎ£ ¡ú CRITICAL£¨½»²æÏî·Å´ó£¡£©
-    4. Ë«Â·µÍÎ£ ¡ú LOW£¨²»¹ı¶È±¨¾¯£©
-    5. ¿ÕÊäÈë ¡ú SAFE
+éªŒè¯å¤šæ¨¡æ€èåˆå¼•æ“çš„æ ¸å¿ƒè¡Œä¸º:
+    1. å•è·¯èˆ±å¤–é«˜å± â†’ HIGHï¼ˆä¸æ˜¯ CRITICALï¼‰
+    2. å•è·¯èˆ±å†…é«˜å± â†’ HIGHï¼ˆä¸æ˜¯ CRITICALï¼‰
+    3. åŒè·¯åŒæ—¶é«˜å± â†’ CRITICALï¼ˆäº¤å‰é¡¹æ”¾å¤§ï¼ï¼‰
+    4. åŒè·¯ä½å± â†’ LOWï¼ˆä¸è¿‡åº¦æŠ¥è­¦ï¼‰
+    5. ç©ºè¾“å…¥ â†’ SAFE
 
-ÔËĞĞ: python test_risk_fusion.py
+è¿è¡Œ: python test_risk_fusion.py
 """
 
 import sys
 import os
 
-# È·±£ÄÜÕÒµ½ src Ä£¿é
+# ç¡®ä¿èƒ½æ‰¾åˆ° src æ¨¡å—
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.core.risk_fusion import RiskFusionEngine, LEVEL_SAFE, LEVEL_LOW, LEVEL_HIGH, LEVEL_CRITICAL
 
 
 def test_fusion():
-    config = {}  # Ê¹ÓÃÄ¬ÈÏ²ÎÊı
+    config = {}  # ä½¿ç”¨é»˜è®¤å‚æ•°
     engine = RiskFusionEngine(config)
 
     passed = 0
@@ -45,17 +45,17 @@ def test_fusion():
             failed += 1
 
     print("=" * 60)
-    print("  ¶àÄ£Ì¬ÈÚºÏÒıÇæ µ¥Ôª²âÊÔ")
+    print("  å¤šæ¨¡æ€èåˆå¼•æ“ å•å…ƒæµ‹è¯•")
     print("=" * 60)
 
-    # ====== ³¡¾° 1: ¿ÕÊäÈë ¡ú SAFE ======
-    print("\n[Test 1] ¿ÕÊäÈë")
+    # ====== åœºæ™¯ 1: ç©ºè¾“å…¥ â†’ SAFE ======
+    print("\n[Test 1] ç©ºè¾“å…¥")
     engine.reset()
     r = engine.evaluate(vehicle_data=None, face_data=None)
-    check("ÎŞÊı¾İ", r.fused_level, [LEVEL_SAFE], r.fused_score)
+    check("æ— æ•°æ®", r.fused_level, [LEVEL_SAFE], r.fused_score)
 
-    # ====== ³¡¾° 2: ½ö²ÕÍâ¸ßÎ£ (TTC=1.0, ¾àÀë=2m) ======
-    print("\n[Test 2] ½ö²ÕÍâ¸ßÎ£")
+    # ====== åœºæ™¯ 2: ä»…èˆ±å¤–é«˜å± (TTC=1.0, è·ç¦»=2m) ======
+    print("\n[Test 2] ä»…èˆ±å¤–é«˜å±")
     engine.reset()
     vehicle_high = [{
         "box": [300, 200, 500, 400],
@@ -73,13 +73,13 @@ def test_fusion():
         "yaw": 2.0, "pitch": -5.0,
     }
     r = engine.evaluate(vehicle_data=vehicle_high, face_data=face_normal)
-    check("²ÕÍâ¸ßÎ£ + ¼İÊ»Ô±Õı³£",
+    check("èˆ±å¤–é«˜å± + é©¾é©¶å‘˜æ­£å¸¸",
           r.fused_level, [LEVEL_LOW, LEVEL_HIGH], r.fused_score)
     print(f"       ext={r.ext_score:.3f} int={r.int_score:.3f} "
           f"cross={r.cross_score:.3f}")
 
-    # ====== ³¡¾° 3: ½ö²ÕÄÚ¸ßÎ£ (Æ£ÀÍ + ·ÖĞÄ) ======
-    print("\n[Test 3] ½ö²ÕÄÚ¸ßÎ£")
+    # ====== åœºæ™¯ 3: ä»…èˆ±å†…é«˜å± (ç–²åŠ³ + åˆ†å¿ƒ) ======
+    print("\n[Test 3] ä»…èˆ±å†…é«˜å±")
     engine.reset()
     face_danger = {
         "has_face": True,
@@ -89,23 +89,23 @@ def test_fusion():
         "yaw": 35.0, "pitch": -10.0,
     }
     r = engine.evaluate(vehicle_data=[], face_data=face_danger)
-    check("¼İÊ»Ô±¸ßÎ£ + Ç°·½¿Õ¿õ",
+    check("é©¾é©¶å‘˜é«˜å± + å‰æ–¹ç©ºæ—·",
           r.fused_level, [LEVEL_LOW, LEVEL_HIGH], r.fused_score)
     print(f"       ext={r.ext_score:.3f} int={r.int_score:.3f} "
           f"cross={r.cross_score:.3f}")
 
-    # ====== ³¡¾° 4: Ë«Â·Í¬Ê±¸ßÎ£ ¡ú Ó¦¸ÃÊÇ CRITICAL ======
-    print("\n[Test 4] Ë«Â·µş¼Ó¸ßÎ£ (ºËĞÄ³¡¾°!)")
+    # ====== åœºæ™¯ 4: åŒè·¯åŒæ—¶é«˜å± â†’ åº”è¯¥æ˜¯ CRITICAL ======
+    print("\n[Test 4] åŒè·¯å åŠ é«˜å± (æ ¸å¿ƒåœºæ™¯!)")
     engine.reset()
     r = engine.evaluate(vehicle_data=vehicle_high, face_data=face_danger)
-    check("²ÕÍâ¸ßÎ£ + ¼İÊ»Ô±¸ßÎ£ ¡ú CRITICAL",
+    check("èˆ±å¤–é«˜å± + é©¾é©¶å‘˜é«˜å± â†’ CRITICAL",
           r.fused_level, [LEVEL_CRITICAL], r.fused_score)
     print(f"       ext={r.ext_score:.3f} int={r.int_score:.3f} "
           f"cross={r.cross_score:.3f}")
-    print(f"       ¡ü ½»²æÏîÊ¹·ÖÖµ´Óµ¥Â·Ë®Æ½Ô¾Éıµ½ CRITICAL")
+    print(f"       â†‘ äº¤å‰é¡¹ä½¿åˆ†å€¼ä»å•è·¯æ°´å¹³è·ƒå‡åˆ° CRITICAL")
 
-    # ====== ³¡¾° 5: Ë«Â·ÇáÎ¢ ¡ú ²»Ó¦¹ı¶È±¨¾¯ ======
-    print("\n[Test 5] Ë«Â·ÇáÎ¢Òì³£")
+    # ====== åœºæ™¯ 5: åŒè·¯è½»å¾® â†’ ä¸åº”è¿‡åº¦æŠ¥è­¦ ======
+    print("\n[Test 5] åŒè·¯è½»å¾®å¼‚å¸¸")
     engine.reset()
     vehicle_mild = [{
         "box": [300, 200, 400, 350],
@@ -123,25 +123,25 @@ def test_fusion():
         "yaw": 12.0, "pitch": -8.0,
     }
     r = engine.evaluate(vehicle_data=vehicle_mild, face_data=face_mild)
-    check("Ë«Â·ÇáÎ¢ ¡ú ²»Ó¦ CRITICAL",
+    check("åŒè·¯è½»å¾® â†’ ä¸åº” CRITICAL",
           r.fused_level, [LEVEL_SAFE, LEVEL_LOW], r.fused_score)
     print(f"       ext={r.ext_score:.3f} int={r.int_score:.3f} "
           f"cross={r.cross_score:.3f}")
 
-    # ====== ³¡¾° 6: ÑéÖ¤ÎŞÈËÁ³Ê±²ÕÄÚ¹éÁã ======
-    print("\n[Test 6] ÎŞÈËÁ³¼ì²â")
+    # ====== åœºæ™¯ 6: éªŒè¯æ— äººè„¸æ—¶èˆ±å†…å½’é›¶ ======
+    print("\n[Test 6] æ— äººè„¸æ£€æµ‹")
     engine.reset()
     r = engine.evaluate(vehicle_data=vehicle_high,
                         face_data={"has_face": False})
-    check("²ÕÍâ¸ßÎ£ + ÎŞÈËÁ³ ¡ú ½ö²ÕÍâ¹±Ï×",
+    check("èˆ±å¤–é«˜å± + æ— äººè„¸ â†’ ä»…èˆ±å¤–è´¡çŒ®",
           r.fused_level, [LEVEL_LOW, LEVEL_HIGH], r.fused_score)
-    assert r.int_score == 0.0, "ÎŞÈËÁ³Ê±²ÕÄÚ·ÖÖµÓ¦Îª 0"
-    print(f"       int_score={r.int_score} (ÕıÈ·¹éÁã)")
+    assert r.int_score == 0.0, "æ— äººè„¸æ—¶èˆ±å†…åˆ†å€¼åº”ä¸º 0"
+    print(f"       int_score={r.int_score} (æ­£ç¡®å½’é›¶)")
 
-    # ====== ×Ü½á ======
+    # ====== æ€»ç»“ ======
     print(f"\n{'=' * 60}")
     total = passed + failed
-    print(f"  ²âÊÔ½á¹û: {passed}/{total} Í¨¹ı")
+    print(f"  æµ‹è¯•ç»“æœ: {passed}/{total} é€šè¿‡")
     if failed == 0:
         print("  All tests passed!")
     else:

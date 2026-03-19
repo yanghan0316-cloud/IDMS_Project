@@ -1,151 +1,78 @@
 """
-src.core.risk_fusion
+src.core.risk_fusion  (v5)
 
-¶àÄ£Ì¬·çÏÕÈÚºÏÒıÇæ (Multimodal Risk Fusion Engine)
-===================================================
+å¤šæ¨¡æ€é£é™©èåˆå¼•æ“ â€” é›†æˆ DriverStateAssessor ååŒè¯„ä¼°
 
-ºËĞÄË¼Ïë:
-    ´«Í³·½°¸ÖĞ£¬²ÕÄÚ£¨Æ£ÀÍ/·ÖĞÄ£©ºÍ²ÕÍâ£¨Åö×²Ô¤¾¯£©ÊÇ¶ÀÁ¢±¨¾¯µÄ£¬
-    ÕâÒâÎ¶×Å"¼İÊ»Ô±´òî§Ë¯ + Ç°³µ 3 Ã×"ºÍ"¼İÊ»Ô±´òî§Ë¯ + Ç°·½¿Õ¿õ"
-    ´¥·¢µÄ¾¯±¨ÍêÈ«ÏàÍ¬¡£
-
-    ±¾Ä£¿é½«Á½Â·ĞÅºÅÁ¿»¯Îª 0~1 µÄÁ¬Ğø·çÏÕ·ÖÖµ£¬²¢Í¨¹ı½»²æÏîÊµÏÖ
-    ¿çÄ£Ì¬·çÏÕ·Å´ó£º
-
-        R_fused = w_ext * S_ext + w_int * S_int + w_cross * S_ext * S_int
-
-    ½»²æÏî (S_ext * S_int) Ö»ÓĞÔÚÁ½Â·Í¬Ê±³öÏÖ·çÏÕÊ±²Å»áÏÔÖø¹±Ï×£¬
-    ÊµÏÖÁË"µş¼ÓÎ£ÏÕÖ¸Êı¼¶·Å´ó"µÄĞ§¹û¡£
-
-ÈÚºÏºóµÄ·çÏÕµÈ¼¶:
-    LEVEL 0 - SAFE     (R < 0.25)  Õı³£¼İÊ»
-    LEVEL 1 - LOW      (R < 0.50)  Çá¶È·çÏÕ£¨µ¥Â·µÍÎ££©
-    LEVEL 2 - HIGH     (R < 0.75)  ¸ß·çÏÕ£¨µ¥Â·¸ßÎ£»òË«Â·ÖĞÎ££©
-    LEVEL 3 - CRITICAL (R >= 0.75) ¼«¸ß·çÏÕ£¨Ë«Â·µş¼Ó£©
-
-ÊäÈë:
-    - vehicle_data: list[dict]  ²ÕÍâÅö×²Ô¤¾¯Ä£¿éµÄÊä³ö
-    - face_data: dict           ²ÕÄÚ FaceMesh ¼ì²âÆ÷µÄÊä³ö
-
-Êä³ö:
-    - FusionResult: dataclass£¬°üº¬¸÷Ïî·ÖÖµ¡¢ÈÚºÏ·ÖÖµ¡¢ÈÚºÏµÈ¼¶
-
-ÅäÖÃÏî (config.yaml -> fusion):
-    w_ext: 0.35          ²ÕÍâÈ¨ÖØ
-    w_int: 0.35          ²ÕÄÚÈ¨ÖØ
-    w_cross: 0.30        ½»²æÏîÈ¨ÖØ£¨¹Ø¼ü´´ĞÂ£©
-    level_thresholds: [0.25, 0.50, 0.75]
-
-ÓÃ·¨:
-    fusion = RiskFusionEngine(config.get('fusion', {}))
-    result = fusion.evaluate(vehicle_data, face_data)
-    print(result.fused_score, result.fused_level, result.fused_text)
+v5 å˜åŒ–:
+    - èˆ±å†… int_score ä¸å†æ¥è‡ªç®€å•å¸ƒå°”åŠ æƒï¼Œ
+      è€Œæ˜¯ç”± DriverStateAssessor çš„ä¿¡å·äº’ç›¸å°è¯é€»è¾‘è®¡ç®—ã€‚
+    - FusionResult æ–°å¢ int_fatigue_score / int_attention_score /
+      int_confidence_label ç­‰è°ƒè¯•å­—æ®µã€‚
 """
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from src.internal.driver_state import DriverStateAssessor
 
-# ==================== Êä³öÊı¾İ½á¹¹ ====================
 
 @dataclass
 class FusionResult:
-    """ÈÚºÏÆÀ¹À½á¹û"""
+    ext_score: float = 0.0
+    int_score: float = 0.0
+    cross_score: float = 0.0
 
-    # ¸÷Í¨µÀµÄÁ¬Ğø·çÏÕ·ÖÖµ (0.0 ~ 1.0)
-    ext_score: float = 0.0          # ²ÕÍâ·çÏÕ·ÖÖµ
-    int_score: float = 0.0          # ²ÕÄÚ·çÏÕ·ÖÖµ
-    cross_score: float = 0.0        # ½»²æÏî·ÖÖµ (ext * int)
+    fused_score: float = 0.0
+    fused_level: int = 0
+    fused_text: str = "SAFE"
 
-    # ÈÚºÏºóµÄ×ÛºÏ·çÏÕ
-    fused_score: float = 0.0        # ¼ÓÈ¨ÈÚºÏ·ÖÖµ
-    fused_level: int = 0            # ÈÚºÏ·çÏÕµÈ¼¶ (0~3)
-    fused_text: str = "SAFE"        # ·çÏÕµÈ¼¶ÎÄ×ÖÃèÊö
+    ext_min_ttc: float = 99.0
+    ext_min_dist: float = 99.0
+    ext_max_level: int = 0
 
-    # Ï¸·ÖÖ¸±ê£¨ÓÃÓÚ UI ÏÔÊ¾ºÍµ÷²Î£©
-    ext_min_ttc: float = 99.0       # ²ÕÍâ×îĞ¡ TTC
-    ext_min_dist: float = 99.0      # ²ÕÍâ×î½ü¾àÀë
-    ext_max_level: int = 0          # ²ÕÍâ×î¸ß¾¯¸æ¼¶±ğ
+    # v5: é©¾é©¶å‘˜çŠ¶æ€ç»†åˆ†
+    int_fatigue_score: float = 0.0
+    int_attention_score: float = 0.0
+    int_fatigue_signals: int = 0
+    int_confidence_label: str = "none"
+    int_has_contradiction: bool = False
 
-    int_drowsy: bool = False        # ÊÇ·ñÆ£ÀÍ
-    int_yawning: bool = False       # ÊÇ·ñ¹şÇ·
-    int_distracted: bool = False    # ÊÇ·ñ·ÖĞÄ
-    int_nodding: bool = False       # ÊÇ·ñµãÍ·
+    int_drowsy: bool = False
+    int_yawning: bool = False
+    int_distracted: bool = False
+    int_nodding: bool = False
 
-    # ÓÃÓÚ±¨¾¯Ä£¿éÅĞ¶Ï
-    should_alert: bool = False      # ÊÇ·ñÓ¦¸Ã´¥·¢±¨¾¯
-    alert_urgency: str = "none"     # "none" / "normal" / "urgent" / "emergency"
-
-
-# ÈÚºÏ·çÏÕµÈ¼¶³£Á¿
-LEVEL_SAFE = 0
-LEVEL_LOW = 1
-LEVEL_HIGH = 2
-LEVEL_CRITICAL = 3
-
-LEVEL_TEXT = {
-    0: "SAFE",
-    1: "LOW",
-    2: "HIGH",
-    3: "CRITICAL",
-}
-
-ALERT_URGENCY = {
-    0: "none",
-    1: "normal",
-    2: "urgent",
-    3: "emergency",
-}
+    should_alert: bool = False
+    alert_urgency: str = "none"
 
 
-# ==================== ÈÚºÏÒıÇæ ====================
+LEVEL_SAFE, LEVEL_LOW, LEVEL_HIGH, LEVEL_CRITICAL = 0, 1, 2, 3
+LEVEL_TEXT = {0: "SAFE", 1: "LOW", 2: "HIGH", 3: "CRITICAL"}
+ALERT_URGENCY = {0: "none", 1: "normal", 2: "urgent", 3: "emergency"}
+
 
 class RiskFusionEngine:
-    """
-    ¶àÄ£Ì¬·çÏÕÈÚºÏÒıÇæ
-
-    ½«²ÕÍâÅö×²Ô¤¾¯ĞÅºÅºÍ²ÕÄÚ¼İÊ»Ô±×´Ì¬ĞÅºÅÈÚºÏÎªÍ³Ò»µÄ·çÏÕÆÀ·Ö¡£
-    """
-
     def __init__(self, config: Dict):
         cfg = config or {}
-
-        # ====== ÈÚºÏÈ¨ÖØ ======
         self.w_ext = float(cfg.get("w_ext", 0.35))
         self.w_int = float(cfg.get("w_int", 0.35))
         self.w_cross = float(cfg.get("w_cross", 0.30))
 
-        # ====== ·çÏÕµÈ¼¶ãĞÖµ ======
         thresholds = cfg.get("level_thresholds", [0.25, 0.50, 0.75])
         self.thresh_low = float(thresholds[0])
         self.thresh_high = float(thresholds[1])
         self.thresh_critical = float(thresholds[2])
 
-        # ====== ²ÕÍâÆÀ·Ö²ÎÊı ======
-        # TTC Ó³ÉäÇø¼ä: TTC <= ttc_danger Ê± score=1.0, TTC >= ttc_safe Ê± score=0.0
         self.ttc_danger = float(cfg.get("ttc_danger", 1.5))
         self.ttc_safe = float(cfg.get("ttc_safe", 6.0))
-
-        # ¾àÀëÓ³ÉäÇø¼ä
         self.dist_danger = float(cfg.get("dist_danger", 3.0))
         self.dist_safe = float(cfg.get("dist_safe", 30.0))
 
-        # ====== ²ÕÄÚÆÀ·ÖÈ¨ÖØ£¨¸÷×ÓÖ¸±ê£© ======
-        self.int_weights = {
-            "drowsy": float(cfg.get("int_w_drowsy", 0.40)),
-            "yawning": float(cfg.get("int_w_yawning", 0.15)),
-            "distracted": float(cfg.get("int_w_distracted", 0.30)),
-            "nodding": float(cfg.get("int_w_nodding", 0.15)),
-        }
+        # v5: ååŒè¯„ä¼°å™¨
+        self._driver_assessor = DriverStateAssessor(cfg)
 
-        # EAR Á¬ĞøĞÔÆÀ·Ö£º¼´Ê¹Î´´¥·¢ is_drowsy£¬EAR ½Ó½üãĞÖµÒ²Ó¦¹±Ï×²¿·Ö·ÖÖµ
-        self.ear_threshold = float(cfg.get("ear_threshold", 0.22))
-        self.ear_safe = float(cfg.get("ear_safe", 0.30))
-
-        # ====== EMA Æ½»¬£¨·ÀÖ¹ÈÚºÏ·ÖÖµ¶¶¶¯£© ======
         self.ema_alpha = float(cfg.get("ema_alpha", 0.4))
         self._fused_ema: Optional[float] = None
 
@@ -154,200 +81,76 @@ class RiskFusionEngine:
         vehicle_data: Optional[List[Dict]] = None,
         face_data: Optional[Dict] = None,
     ) -> FusionResult:
-        """
-        Ö´ĞĞÒ»´ÎÈÚºÏÆÀ¹À¡£Ã¿Ö¡µ÷ÓÃÒ»´Î¡£
-
-        Args:
-            vehicle_data: ²ÕÍâÅö×²Ô¤¾¯Ä£¿éµÄÊä³öÁĞ±í
-            face_data: ²ÕÄÚ FaceMesh ¼ì²âÆ÷µÄÊä³ö×Öµä
-
-        Returns:
-            FusionResult: ÈÚºÏÆÀ¹À½á¹û
-        """
         result = FusionResult()
 
-        # --- 1. ¼ÆËã²ÕÍâ·çÏÕ·ÖÖµ ---
-        result.ext_score, ext_details = self._compute_ext_score(vehicle_data)
-        result.ext_min_ttc = ext_details["min_ttc"]
-        result.ext_min_dist = ext_details["min_dist"]
-        result.ext_max_level = ext_details["max_level"]
+        # 1. èˆ±å¤–
+        result.ext_score, ext_d = self._compute_ext_score(vehicle_data)
+        result.ext_min_ttc = ext_d["min_ttc"]
+        result.ext_min_dist = ext_d["min_dist"]
+        result.ext_max_level = ext_d["max_level"]
 
-        # --- 2. ¼ÆËã²ÕÄÚ·çÏÕ·ÖÖµ ---
-        result.int_score, int_details = self._compute_int_score(face_data)
-        result.int_drowsy = int_details["drowsy"]
-        result.int_yawning = int_details["yawning"]
-        result.int_distracted = int_details["distracted"]
-        result.int_nodding = int_details["nodding"]
+        # 2. èˆ±å†… (v5: DriverStateAssessor)
+        ds = self._driver_assessor.evaluate(face_data)
+        result.int_score = ds.driver_risk
+        result.int_fatigue_score = ds.fatigue_score
+        result.int_attention_score = ds.attention_score
+        result.int_fatigue_signals = ds.fatigue_signals
+        result.int_confidence_label = ds.confidence_label
+        result.int_has_contradiction = ds.has_contradiction
 
-        # --- 3. ¼ÆËã½»²æÏî ---
+        if face_data and face_data.get("has_face"):
+            result.int_drowsy = bool(face_data.get("is_drowsy"))
+            result.int_yawning = bool(face_data.get("is_yawning"))
+            result.int_distracted = bool(face_data.get("is_distracted"))
+            result.int_nodding = bool(face_data.get("is_nodding"))
+
+        # 3. äº¤å‰é¡¹
         result.cross_score = result.ext_score * result.int_score
 
-        # --- 4. ¼ÓÈ¨ÈÚºÏ ---
-        raw_fused = (
-            self.w_ext * result.ext_score
-            + self.w_int * result.int_score
-            + self.w_cross * result.cross_score
-        )
-        # Ç¯Î»µ½ [0, 1]
-        raw_fused = max(0.0, min(1.0, raw_fused))
+        # 4. èåˆ
+        raw = (self.w_ext * result.ext_score
+               + self.w_int * result.int_score
+               + self.w_cross * result.cross_score)
+        raw = max(0.0, min(1.0, raw))
 
-        # EMA Æ½»¬
         if self._fused_ema is None:
-            self._fused_ema = raw_fused
+            self._fused_ema = raw
         else:
-            self._fused_ema = (
-                self.ema_alpha * raw_fused
-                + (1 - self.ema_alpha) * self._fused_ema
-            )
+            self._fused_ema = self.ema_alpha * raw + (1 - self.ema_alpha) * self._fused_ema
 
         result.fused_score = round(float(self._fused_ema), 4)
 
-        # --- 5. ·çÏÕ·Ö¼¶ ---
-        result.fused_level = self._classify_level(result.fused_score)
+        # 5. åˆ†çº§
+        result.fused_level = self._classify(result.fused_score)
         result.fused_text = LEVEL_TEXT[result.fused_level]
-
-        # --- 6. ±¨¾¯¾ö²ß ---
         result.alert_urgency = ALERT_URGENCY[result.fused_level]
         result.should_alert = result.fused_level >= LEVEL_HIGH
-
         return result
 
-    # ------------------------------------------------------------------
-    #  ²ÕÍâ·çÏÕÁ¿»¯
-    # ------------------------------------------------------------------
+    # ---------- èˆ±å¤–è¯„åˆ† ----------
+    def _compute_ext_score(self, vd: Optional[List[Dict]]) -> Tuple[float, Dict]:
+        d = {"min_ttc": 99.0, "min_dist": 99.0, "max_level": 0}
+        if not vd:
+            return 0.0, d
+        mx = 0.0
+        for o in vd:
+            ttc, dist, lv = o.get("ttc", 99.0), o.get("distance", 99.0), o.get("warning_level", 0)
+            lr = o.get("lane_relevance", 1.0)
+            if ttc < d["min_ttc"]: d["min_ttc"] = ttc
+            if 0 < dist < d["min_dist"]: d["min_dist"] = dist
+            if lv > d["max_level"]: d["max_level"] = lv
+            ts = max(0.0, min(1.0, 1.0 - (ttc - self.ttc_danger) / (self.ttc_safe - self.ttc_danger))) if ttc < self.ttc_safe else 0.0
+            ds = max(0.0, min(1.0, 1.0 - (dist - self.dist_danger) / (self.dist_safe - self.dist_danger))) if 0 < dist < self.dist_safe else 0.0
+            s = max(ts, ds) * lr
+            s = max(s, {0: 0.0, 1: 0.3, 2: 0.7}.get(lv, 0.0))
+            mx = max(mx, s)
+        return round(mx, 4), d
 
-    def _compute_ext_score(self, vehicle_data: Optional[List[Dict]]) -> Tuple[float, Dict]:
-        """
-        ½«²ÕÍâ¼ì²â½á¹ûÁ¿»¯Îª 0~1 µÄ·çÏÕ·ÖÖµ¡£
+    def _classify(self, s: float) -> int:
+        if s >= self.thresh_critical: return LEVEL_CRITICAL
+        if s >= self.thresh_high: return LEVEL_HIGH
+        if s >= self.thresh_low: return LEVEL_LOW
+        return LEVEL_SAFE
 
-        ²ßÂÔ: È¡ËùÓĞ¼ì²âÄ¿±êÖĞ·çÏÕ×î¸ßµÄÄÇ¸ö£¨×îĞ¡ TTC / ×î½ü¾àÀë£©¡£
-        """
-        details = {"min_ttc": 99.0, "min_dist": 99.0, "max_level": 0}
-
-        if not vehicle_data:
-            return 0.0, details
-
-        max_score = 0.0
-
-        for obj in vehicle_data:
-            ttc = obj.get("ttc", 99.0)
-            dist = obj.get("distance", 99.0)
-            level = obj.get("warning_level", 0)
-            lane_rel = obj.get("lane_relevance", 1.0)
-
-            # ¸üĞÂÍ³¼Æ
-            if ttc < details["min_ttc"]:
-                details["min_ttc"] = ttc
-            if 0 < dist < details["min_dist"]:
-                details["min_dist"] = dist
-            if level > details["max_level"]:
-                details["max_level"] = level
-
-            # TTC ·ÖÖµ: ÏßĞÔÓ³Éä [ttc_safe, ttc_danger] -> [0, 1]
-            ttc_score = 0.0
-            if ttc < self.ttc_safe:
-                ttc_score = 1.0 - (ttc - self.ttc_danger) / (self.ttc_safe - self.ttc_danger)
-                ttc_score = max(0.0, min(1.0, ttc_score))
-
-            # ¾àÀë·ÖÖµ
-            dist_score = 0.0
-            if 0 < dist < self.dist_safe:
-                dist_score = 1.0 - (dist - self.dist_danger) / (self.dist_safe - self.dist_danger)
-                dist_score = max(0.0, min(1.0, dist_score))
-
-            # È¡ TTC ºÍ¾àÀëÖĞ¸üÎ£ÏÕµÄÄÇ¸ö
-            obj_score = max(ttc_score, dist_score)
-
-            # ¿¼ÂÇ³µµÀÏà¹ØĞÔË¥¼õ
-            obj_score *= lane_rel
-
-            # ÀëÉ¢ warning_level µÄ±£µ×·ÖÖµ
-            # È·±£ DANGER ¼¶±ğµÄÄ¿±êÖÁÉÙÓĞ 0.7 ·Ö
-            level_floor = {0: 0.0, 1: 0.3, 2: 0.7}
-            obj_score = max(obj_score, level_floor.get(level, 0.0))
-
-            max_score = max(max_score, obj_score)
-
-        return round(max_score, 4), details
-
-    # ------------------------------------------------------------------
-    #  ²ÕÄÚ·çÏÕÁ¿»¯
-    # ------------------------------------------------------------------
-
-    def _compute_int_score(self, face_data: Optional[Dict]) -> Tuple[float, Dict]:
-        """
-        ½«²ÕÄÚ¼İÊ»Ô±×´Ì¬Á¿»¯Îª 0~1 µÄ·çÏÕ·ÖÖµ¡£
-
-        ²ßÂÔ: ¼ÓÈ¨×éºÏ¸÷Ïî²¼¶û×´Ì¬ + EAR Á¬ĞøĞÔ²¹³¥¡£
-        """
-        details = {
-            "drowsy": False,
-            "yawning": False,
-            "distracted": False,
-            "nodding": False,
-        }
-
-        if not face_data or not face_data.get("has_face"):
-            return 0.0, details
-
-        # ÌáÈ¡²¼¶û×´Ì¬
-        is_drowsy = bool(face_data.get("is_drowsy", False))
-        is_yawning = bool(face_data.get("is_yawning", False))
-        is_distracted = bool(face_data.get("is_distracted", False))
-        is_nodding = bool(face_data.get("is_nodding", False))
-
-        details["drowsy"] = is_drowsy
-        details["yawning"] = is_yawning
-        details["distracted"] = is_distracted
-        details["nodding"] = is_nodding
-
-        # ¼ÓÈ¨ÇóºÍ£¨²¼¶û²¿·Ö£©
-        bool_score = 0.0
-        if is_drowsy:
-            bool_score += self.int_weights["drowsy"]
-        if is_yawning:
-            bool_score += self.int_weights["yawning"]
-        if is_distracted:
-            bool_score += self.int_weights["distracted"]
-        if is_nodding:
-            bool_score += self.int_weights["nodding"]
-
-        # EAR Á¬ĞøĞÔ²¹³¥:
-        # ¼´Ê¹ is_drowsy »¹Ã»´¥·¢£¨±ÕÑÛÊ±¼ä²»¹»³¤£©£¬µ« EAR ÒÑ¾­ºÜµÍÁË£¬
-        # Ó¦¸ÃÌáÇ°¹±Ï×²¿·Ö·ÖÖµ£¬ÈÃÈÚºÏ·ÖÖµÌáÇ°ÉÏÉı¡£
-        ear = float(face_data.get("ear", 0.3))
-        ear_contrib = 0.0
-        if ear < self.ear_safe:
-            # ÏßĞÔÓ³Éä [ear_threshold, ear_safe] -> [0.3, 0]
-            ear_contrib = (self.ear_safe - ear) / (self.ear_safe - self.ear_threshold)
-            ear_contrib = max(0.0, min(0.3, ear_contrib * 0.3))
-
-        # Æ«º½½ÇÁ¬ĞøĞÔ²¹³¥£¨ÀàËÆ EAR µÄË¼Â·£©
-        yaw = abs(float(face_data.get("yaw", 0.0)))
-        yaw_contrib = 0.0
-        if yaw > 10.0:  # 10¡ã ÒÔÉÏ¿ªÊ¼ÓĞÎ¢Èõ¹±Ï×
-            yaw_contrib = min(0.2, (yaw - 10.0) / 40.0 * 0.2)
-
-        # ×ÛºÏ£¨²¼¶û×´Ì¬ + Á¬ĞøĞÔ²¹³¥£¬Ç¯Î»µ½ 1.0£©
-        total = min(1.0, bool_score + ear_contrib + yaw_contrib)
-
-        return round(total, 4), details
-
-    # ------------------------------------------------------------------
-    #  ·çÏÕ·Ö¼¶
-    # ------------------------------------------------------------------
-
-    def _classify_level(self, score: float) -> int:
-        """½«ÈÚºÏ·ÖÖµÓ³Éäµ½ÀëÉ¢·çÏÕµÈ¼¶"""
-        if score >= self.thresh_critical:
-            return LEVEL_CRITICAL
-        elif score >= self.thresh_high:
-            return LEVEL_HIGH
-        elif score >= self.thresh_low:
-            return LEVEL_LOW
-        else:
-            return LEVEL_SAFE
-
-    def reset(self) -> None:
-        """ÖØÖÃ EMA ×´Ì¬£¨ÓÃÓÚÖØĞÂ³õÊ¼»¯£©"""
+    def reset(self):
         self._fused_ema = None
