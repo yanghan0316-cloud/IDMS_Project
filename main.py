@@ -17,8 +17,12 @@ from src.internal.face_mesh import FaceMeshDetector
 # --- v4 新增: 多模态融合引擎 ---
 from src.core.risk_fusion import RiskFusionEngine
 
-import torch
-print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
+try:
+    import torch
+    print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
+except ImportError:
+    torch = None
+    print("[DEBUG] torch 未安装或不可导入，舱外 YOLO 初始化时会给出具体错误。")
 
 
 def load_config(path="config.yaml"):
@@ -53,6 +57,21 @@ class FPSCounter:
         if dt <= 0:
             return 0.0
         return (len(self.timestamps) - 1) / dt
+
+
+def cleanup_runtime(p_camera_ext=None, p_camera_int=None, alerter=None, face_detector=None):
+    """统一释放运行期资源，允许部分对象尚未初始化。"""
+    for proc in (p_camera_ext, p_camera_int):
+        if proc is not None and proc.is_alive():
+            proc.terminate()
+    for proc in (p_camera_ext, p_camera_int):
+        if proc is not None:
+            proc.join(timeout=2)
+    cv2.destroyAllWindows()
+    if alerter is not None:
+        alerter.close()
+    if face_detector is not None:
+        face_detector.close()
 
 
 def camera_producer(queue, camera_id, width, height, label="Cam", ready_event=None):
@@ -91,7 +110,7 @@ def camera_producer(queue, camera_id, width, height, label="Cam", ready_event=No
             except Empty:
                 pass
         try:
-            queue.put(frame)
+            queue.put_nowait(frame)
         except Full:
             pass
 
@@ -148,8 +167,7 @@ def main():
         print(f"[警告] 舱内摄像头 (ID={cam_id_int}) 启动超时！")
     if not ext_ok and not int_ok:
         print("[错误] 两个摄像头都无法启动，程序退出。")
-        p_camera_ext.terminate()
-        p_camera_int.terminate()
+        cleanup_runtime(p_camera_ext, p_camera_int)
         return
 
     use_ext = ext_ok
@@ -167,25 +185,41 @@ def main():
     yolo_detector = None
     dist_estimator = None
     collision_warner = None
-    if use_ext:
-        try:
-            yolo_detector = YoloDetector(config['external'])
-            dist_estimator = DistanceEstimator(config['external'])
-            collision_warner = CollisionWarner(config['external'])
-        except Exception as e:
-            print(f"[错误] YOLO 模型加载失败: {e}")
-            use_ext = False
-
-    visualizer = Visualizer(config['ui'])
-    alerter = AudioAlerter(config.get('ui', {}))
-
     face_detector = None
-    if use_int:
-        config['internal']['return_landmarks'] = bool(config.get('ui', {}).get('show_landmarks', False))
-        face_detector = FaceMeshDetector(config['internal'])
+    alerter = None
+
+    try:
+        if use_ext:
+            try:
+                yolo_detector = YoloDetector(config['external'])
+                dist_estimator = DistanceEstimator(config['external'])
+                collision_warner = CollisionWarner(config['external'])
+            except Exception as e:
+                print(f"[错误] YOLO 模型加载失败: {e}")
+                use_ext = False
+
+        visualizer = Visualizer(config['ui'])
+        alerter = AudioAlerter(config.get('ui', {}))
+
+        if use_int:
+            internal_cfg = dict(config.get('internal', {}))
+            internal_cfg['return_landmarks'] = bool(config.get('ui', {}).get('show_landmarks', False))
+            face_detector = FaceMeshDetector(internal_cfg)
+
+        if not use_ext and not use_int:
+            print("[错误] 算法模块均无法初始化，程序退出。")
+            cleanup_runtime(p_camera_ext, p_camera_int, alerter, face_detector)
+            return
+    except Exception:
+        print("[错误] 初始化运行模块失败，正在清理资源。")
+        traceback.print_exc()
+        cleanup_runtime(p_camera_ext, p_camera_int, alerter, face_detector)
+        return
 
     # v4 新增: 初始化多模态融合引擎
-    fusion_engine = RiskFusionEngine(config.get('fusion', {}))
+    fusion_cfg = dict(config.get('internal', {}))
+    fusion_cfg.update(config.get('fusion', {}))
+    fusion_engine = RiskFusionEngine(fusion_cfg)
 
     print("[System] 系统就绪！按 'q' 键退出。")
 
@@ -193,6 +227,8 @@ def main():
     time.sleep(0.5)
 
     # --- 使用滑动窗口 FPS 计数器 ---
+
+    
     fps_counter = FPSCounter(window=30)
     log_timer = time.time()  # 用于控制终端日志输出频率
 
@@ -256,7 +292,10 @@ def main():
                 curr_frame_ext = frame_ext.copy()
                 raw_detections = yolo_detector.process(curr_frame_ext)
                 dist_detections = dist_estimator.calculate(raw_detections)
-                vehicle_data = collision_warner.process(dist_detections)
+                vehicle_data = collision_warner.process(
+                    dist_detections,
+                    frame_width=curr_frame_ext.shape[1],
+                )
                 vis_ext = visualizer.draw_results(curr_frame_ext, face_data=None, vehicle_data=vehicle_data)
             elif use_ext and frame_ext is not None:
                 # 帧已过期，显示灰色提示但不做 AI 推理
@@ -395,14 +434,7 @@ def main():
         traceback.print_exc()
         print(f"{'='*60}")
     finally:
-        p_camera_ext.terminate()
-        p_camera_int.terminate()
-        p_camera_ext.join(timeout=2)
-        p_camera_int.join(timeout=2)
-        cv2.destroyAllWindows()
-        alerter.close()
-        if face_detector:
-            face_detector.close()
+        cleanup_runtime(p_camera_ext, p_camera_int, alerter, face_detector)
         print("[System] 程序已安全退出。")
 
 

@@ -5,9 +5,6 @@
 
 """
 
-import numpy as np
-
-
 class DistanceEstimator:
     # 不同车辆类别的典型物理宽度 (米)
     DEFAULT_WIDTHS = {
@@ -75,12 +72,14 @@ class DistanceEstimator:
 
             # 可选 EMA 平滑（用 box 中心作为简易 key）
             if self.smoothing > 0:
-                key = self._box_key(obj['box'])
+                key = (obj.get('class_id'), *self._box_key(obj['box']))
                 prev = self._ema_cache.get(key)
                 if prev is not None:
                     alpha = self.smoothing
                     distance = alpha * distance + (1 - alpha) * prev
                 self._ema_cache[key] = distance
+                if len(self._ema_cache) > 200:
+                    self._ema_cache.pop(next(iter(self._ema_cache)))
 
             obj['distance'] = round(distance, 2)
 

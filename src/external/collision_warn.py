@@ -278,20 +278,30 @@ class CollisionWarner:
             return None
 
         cx, cy = self._get_center(current_obj['box'])
+        curr_cls = current_obj.get('class_id')
         box_diag = math.hypot(
             current_obj['box'][2] - current_obj['box'][0],
             current_obj['box'][3] - current_obj['box'][1],
         )
         threshold = self.match_pixel_base + box_diag * 0.3
 
-        min_dist = float('inf')
+        best_score = float('inf')
         best_match = None
 
         for old_obj in old_objs:
+            old_cls = old_obj.get('class_id')
+            if curr_cls is not None and old_cls is not None and curr_cls != old_cls:
+                continue
+
             old_cx, old_cy = self._get_center(old_obj['box'])
-            dist = math.hypot(cx - old_cx, cy - old_cy)
-            if dist < threshold and dist < min_dist:
-                min_dist = dist
+            center_dist = math.hypot(cx - old_cx, cy - old_cy)
+            if center_dist >= threshold:
+                continue
+
+            iou = self._box_iou(current_obj['box'], old_obj['box'])
+            score = center_dist * (1.0 - min(iou, 0.9) * 0.35)
+            if score < best_score:
+                best_score = score
                 best_match = old_obj
 
         return best_match
@@ -306,3 +316,20 @@ class CollisionWarner:
         cx = (box[0] + box[2]) // 2
         cy = (box[1] + box[3]) // 2
         return (cx // 60, cy // 60)
+
+    @staticmethod
+    def _box_iou(a, b):
+        ax1, ay1, ax2, ay2 = a
+        bx1, by1, bx2, by2 = b
+        ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+        ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+        iw, ih = max(0, ix2 - ix1), max(0, iy2 - iy1)
+        inter = iw * ih
+        if inter <= 0:
+            return 0.0
+        area_a = max(0, ax2 - ax1) * max(0, ay2 - ay1)
+        area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
+        union = area_a + area_b - inter
+        if union <= 0:
+            return 0.0
+        return inter / union

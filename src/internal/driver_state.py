@@ -76,6 +76,10 @@ class DriverStateAssessor:
         self.blink_freq_normal = float(cfg.get("blink_freq_normal", 20.0))
         self.blink_freq_high = float(cfg.get("blink_freq_high_threshold", 25.0))
         self.yaw_threshold = float(cfg.get("distraction_yaw_threshold_deg", 20.0))
+        self.yaw_safe = float(cfg.get("distraction_yaw_safe_deg", max(0.0, self.yaw_threshold * 0.5)))
+        self.yaw_danger = float(cfg.get("distraction_yaw_danger_deg", max(self.yaw_threshold + 10.0, 40.0)))
+        if self.yaw_danger <= self.yaw_safe:
+            self.yaw_danger = self.yaw_safe + 1.0
 
         # ====== 疲劳维度各指标基础权重 ======
         self.w_perclos = float(cfg.get("w_perclos", 0.30))
@@ -150,12 +154,12 @@ class DriverStateAssessor:
             blink_score = (blink_freq - self.blink_freq_normal) / (35.0 - self.blink_freq_normal)
 
         # 偏航角连续分值
-        if yaw <= 10.0:
+        if yaw <= self.yaw_safe:
             yaw_score = 0.0
-        elif yaw >= 40.0:
+        elif yaw >= self.yaw_danger:
             yaw_score = 1.0
         else:
-            yaw_score = (yaw - 10.0) / 30.0
+            yaw_score = (yaw - self.yaw_safe) / (self.yaw_danger - self.yaw_safe)
 
         # ============================================================
         # 第二步: 计算疲劳信号互相印证

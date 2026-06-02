@@ -5,9 +5,6 @@ YOLOv8 车辆检测器
 
 """
 
-import cv2
-import numpy as np
-
 try:
     from ultralytics import YOLO
 except ImportError:

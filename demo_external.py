@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 ==========================================================
   舱外感知模块 Demo (External Module Test)
 ==========================================================
@@ -43,21 +43,28 @@ import time
 import math
 import argparse
 import numpy as np
-import yaml
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 # ===================== 尝试导入 OpenCV =====================
 try:
     import cv2
 except ImportError:
-    print("[错误] 未安装 opencv-python，请运行: pip install opencv-python")
-    sys.exit(1)
+    cv2 = None
 
 # ===================== 导入声音报警模块 =====================
 from src.ui.alert_system import AudioAlerter
 
 
-import torch
-print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
+try:
+    import torch
+    print(f"[DEBUG] torch={torch.__version__}, cuda={torch.cuda.is_available()}")
+except ImportError:
+    torch = None
+    print("[DEBUG] torch 未安装或不可导入；模拟模式仍可运行，YOLO 模式会在初始化时提示。")
 
 # ==================== 配置 & 参数解析 ====================
 
@@ -85,6 +92,9 @@ def parse_args():
 
 def load_yaml_config(config_path="config.yaml"):
     """尝试加载全局配置文件"""
+    if yaml is None:
+        print("[警告] 未安装 PyYAML，将使用默认内置参数。")
+        return {}, {}
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             full_config = yaml.safe_load(f)
@@ -492,6 +502,10 @@ class FPSCounter:
 # ==================== 主函数 ====================
 
 def main():
+    if cv2 is None:
+        print("[错误] 未安装 opencv-python，请运行: pip install opencv-python")
+        sys.exit(1)
+
     args = parse_args()
     config, ui_config = build_config(args)
 
@@ -705,7 +719,7 @@ def run_unit_tests():
     assert_close("帧1 warning_level (无历史)", result1[0]['warning_level'], 0, tol=0.1)
 
     time.sleep(0.05)
-    warner.last_timestamp = time.time() - 0.5
+    warner.last_timestamp = time.time() - 0.1
     frame2 = [{'box': [395, 298, 510, 375], 'distance': 15.0, 'class_id': 2}]
     result2 = warner.process(frame2)
     print(f"  → rel_speed={result2[0]['rel_speed']:.2f} m/s, "
@@ -722,7 +736,9 @@ def run_unit_tests():
     warner3 = CW(test_config)
     warner3.last_frame_data = [{'box': [400, 300, 500, 370], 'distance': 8.0}]
     warner3.last_timestamp = time.time() - 0.1
-    danger = warner3.process([{'box': [395, 298, 510, 375], 'distance': 3.0, 'class_id': 2}])
+    warner3.process([{'box': [395, 298, 510, 375], 'distance': 3.0, 'class_id': 2}])
+    warner3.last_timestamp = time.time() - 0.1
+    danger = warner3.process([{'box': [392, 296, 515, 378], 'distance': 2.5, 'class_id': 2}])
     assert_close("危险场景 warning_level", danger[0]['warning_level'], 2, tol=0.1)
 
     print(f"\n{'=' * 60}")

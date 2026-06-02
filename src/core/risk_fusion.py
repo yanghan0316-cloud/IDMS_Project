@@ -61,6 +61,8 @@ class RiskFusionEngine:
         self.w_cross = float(cfg.get("w_cross", 0.30))
 
         thresholds = cfg.get("level_thresholds", [0.25, 0.50, 0.75])
+        if len(thresholds) != 3:
+            thresholds = [0.25, 0.50, 0.75]
         self.thresh_low = float(thresholds[0])
         self.thresh_high = float(thresholds[1])
         self.thresh_critical = float(thresholds[2])

@@ -83,6 +83,9 @@ class FatigueAnalyzer:
         self._eye_low_frames = 0
         self._mouth_high_frames = 0
         self._blink_segment = 0
+        self._eye_closed_since: Optional[float] = None
+        self._mouth_open_since: Optional[float] = None
+        self._blink_segment_since: Optional[float] = None
         self._ear_ema: Optional[float] = None
         self._mar_ema: Optional[float] = None
         self._is_drowsy = False
@@ -119,6 +122,9 @@ class FatigueAnalyzer:
         self._eye_low_frames = 0
         self._mouth_high_frames = 0
         self._blink_segment = 0
+        self._eye_closed_since = None
+        self._mouth_open_since = None
+        self._blink_segment_since = None
         self._ear_ema = None
         self._mar_ema = None
         self._is_drowsy = False
@@ -156,28 +162,54 @@ class FatigueAnalyzer:
         blink = False
 
         if eye_closed:
+            if self._eye_closed_since is None:
+                self._eye_closed_since = now
+            if self._blink_segment == 0:
+                self._blink_segment_since = now
             self._eye_low_frames += 1
             self._blink_segment += 1
         else:
-            if 1 <= self._blink_segment <= self._blink_frames_th:
+            blink_duration = 0.0
+            if self._blink_segment_since is not None:
+                blink_duration = now - self._blink_segment_since
+            if (1 <= self._blink_segment
+                    and (self._blink_segment <= self._blink_frames_th
+                         or blink_duration <= self.blink_max_sec)):
                 blink = True
             self._blink_segment = 0
             self._eye_low_frames = 0
+            self._eye_closed_since = None
+            self._blink_segment_since = None
 
         # 疲劳判定（连续闭眼）
+        eye_closed_duration = 0.0
+        if self._eye_closed_since is not None:
+            eye_closed_duration = now - self._eye_closed_since
         if self.enable_drowsy:
-            self._is_drowsy = self._eye_low_frames >= self._eye_frames_th
+            self._is_drowsy = (
+                self._eye_low_frames >= self._eye_frames_th
+                or (self.drowsy_duration_sec > 0 and eye_closed_duration >= self.drowsy_duration_sec)
+            )
         else:
             self._is_drowsy = False
 
         # 哈欠判定
         if mar_use > self.mar_threshold:
+            if self._mouth_open_since is None:
+                self._mouth_open_since = now
             self._mouth_high_frames += 1
         else:
             self._mouth_high_frames = 0
+            self._mouth_open_since = None
 
+        mouth_open_duration = 0.0
+        if self._mouth_open_since is not None:
+            mouth_open_duration = now - self._mouth_open_since
         if self.enable_yawn:
-            self._is_yawning = self._mouth_high_frames >= self._mouth_frames_th
+            self._is_yawning = (
+                self._mouth_high_frames >= self._mouth_frames_th
+                or (self.yawn_duration_sec > 0 and mouth_open_duration >= self.yawn_duration_sec)
+            )
         else:
             self._is_yawning = False
 

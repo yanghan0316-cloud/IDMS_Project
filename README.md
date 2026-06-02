@@ -44,7 +44,7 @@
    打开全局配置文件 config.yaml，根据实际硬件情况修改摄像头 ID：
    system:
      camera_id_ext: 2      # 舱外摄像头 ID
-     camera_id_int: 1      # 舱内摄像头 ID
+     camera_id_int: 0      # 舱内摄像头 ID
 4. **运行系统**
 
    external的demo部分：
