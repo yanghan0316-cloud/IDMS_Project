@@ -40,9 +40,9 @@ pip install -r requirements.txt
 
 ```powershell
 python train_rssm.py --device auto --steps 2000 --batch 32 --seq 32 --output checkpoints/idms_rssm.pt
+```
 
 默认会读取 config.yaml，把 fusion 与 internal 的解析后特征参数写入契约；仅做默认参数隔离测试时可传 --feature-config none。 保存完成后把终端打印的 SHA-256 填入 config.yaml，再启动 hybrid 规划。
-```
 
 CPU 快速冒烟训练可用：
 
@@ -99,7 +99,7 @@ decision:
 - `samples`：每个候选动作的随机想象条数；越大越稳健，也越耗时。实现将其限制为最多 64 条，并限制总想象为 40 个模型步，避免误配置导致内存或时延失控。
 - `cvar_alpha: 0.75`：聚合最坏约 25% 样本的风险。
 - `dt_sec`：RSSM 状态更新与想象步长；应接近实际遥测采样周期。
-- `max_gap_sec`：时间断流的硬上限；偏离 `dt_sec` 超过 40% 时也会用当前观测重锚，避免猜测缺失动作历史。
+- `max_gap_sec`：时间断流的硬上限。间隔小于 `dt_sec` 时暂不更新并保留时间余量；间隔大于 `1.4 × dt_sec` 时重锚；超过 `max_gap_sec` 或时间倒退时先重置再重锚，避免猜测缺失动作历史。
 - `max_decel`、`max_delay`：动作归一化上限，必须覆盖真实执行范围。`remaining_delay_sec` 可以大于单步 `dt_sec`，但不得超过 `max_delay`，并会在连续想象步中逐步扣减。
 - `max_horizon_sec`：解析预测的绝对上限；混合模式还要求该 horizon 在 40 个 RSSM 步内完成。
 
@@ -109,7 +109,7 @@ decision:
 
 ## 4. 必须遵守的数据与安全边界
 
-`DecisionResult.action` 和当前 CSV 中的 `action` 都只是**推荐动作**，不代表车辆已经执行。当前 `logs/mrm_decisions.csv` / `logs/mrm_video_decisions.csv` 没有执行器确认，也没有严格记录“动作导致下一状态”的转移，因此**不可直接作为 RSSM 动作条件训练数据**。否则模型会错误学习“推荐制动已经改变了车辆状态”。这些 CSV 只适合回放、审计和阈值分析。
+`DecisionResult.action` 和当前 CSV 中的 `action` 都只是**推荐动作**，不代表车辆已经执行。当前 `logs/mrm_decisions.csv`、`logs/mrm_video_decisions.csv` 和 `logs/rssm_external_decisions.csv` 没有执行器确认，也没有严格记录“动作导致下一状态”的转移，因此**不可直接作为 RSSM 动作条件训练数据**。否则模型会错误学习“推荐制动已经改变了车辆状态”。这些 CSV 只适合回放、审计和阈值分析。
 
 真实训练样本至少应保存：
 
@@ -126,7 +126,7 @@ obs_t+1(13字段), done/is_first
 
 本模块是研究/辅助决策组件，不是经过功能安全认证的车辆控制器。实车接入前应先完成离线回放、影子模式和封闭场地测试，并保留独立的执行器限幅、watchdog、人工接管与紧急制动链路。模型风险值也不应直接解释为经过标定的碰撞概率。
 
-外部感知必须显式区分“有效帧且零检测”与“摄像头失联/帧过期”。main.py 会传入 external_perception_valid：失联时规划器停止更新 RSSM、保留并按接近速度外推最近一次有效外部状态，动作等级不得低于上次有效决策；无历史危险时至少 SLOW_DOWN，持续 0.5 秒后至少 BRAKE。只有新的有效空观测才能解除旧危险。集成其他传感器时必须保留这一有效性字段，不能用空列表表示失联。
+外部感知必须显式区分“有效帧且零检测”与“摄像头失联/帧过期”。`main.py`、`demo_rssm_external.py` 和 `CarlaSensorSource` 都保留 `external_perception_valid` 语义：失联时规划器停止更新 RSSM、保留并按接近速度外推最近一次有效外部状态，动作等级不得低于上次有效决策；无历史危险时至少 SLOW_DOWN，持续 0.5 秒后至少 BRAKE。只有新的有效空观测才能解除旧危险。集成其他传感器时必须保留这一有效性字段，不能用空列表表示失联。
 
 ## 5. 接入真实 `applied_action`
 
@@ -170,14 +170,17 @@ while running:
 
 执行回执中的映射必须显式提供 `target_decel`（或 `decel`）；同一动作持续执行时内部只在 onset 编码一次响应延迟。若可控制执行策略，最好让命令至少保持一个 `dt_sec`，减少频繁重锚。
 
-当前 `main.py` 没有执行器反馈，因而调用 `plan()` 时未传 `applied_action`；这会安全地编码成 unknown，但无法形成真实动作条件历史。接入执行器时，应在主循环中维护上例的 `last_applied_action`，并另建执行遥测日志，不要改写推荐动作日志的语义。
+当前 `main.py` 没有执行器反馈，`demo_rssm_external.py` 也固定传入 `applied_action=None`；这会安全地编码成 unknown，但无法形成真实动作条件历史。接入执行器或 CARLA 闭环时，应维护上例的 `last_applied_action`，并另建执行遥测日志，不要改写推荐动作日志的语义。
 
 ## 6. 验证
 
 运行 RSSM 合约测试与规划器回归测试：
 
 ```powershell
-python -m unittest tests.test_rssm_world_model tests.test_rssm_training tests.test_mrm_safety -v
+python -m unittest discover -v -s tests -p "test_external_rssm_demo.py"
+python -m unittest discover -v -s tests -p "test_rssm_world_model.py"
+python -m unittest discover -v -s tests -p "test_rssm_training.py"
+python -m unittest discover -v -s tests -p "test_mrm_safety.py"
 python test_mrm_planner.py
 ```
 

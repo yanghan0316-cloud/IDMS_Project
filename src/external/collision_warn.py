@@ -42,7 +42,7 @@ class CollisionWarner:
 
         # 上一帧数据
         self.last_frame_data = []
-        self.last_timestamp = time.time()
+        self.last_timestamp = None
 
         # 冷却记录: { (grid_x, grid_y): last_danger_time }
         self._cooldown_map = {}
@@ -84,7 +84,7 @@ class CollisionWarner:
 
     # ------------------------------------------------------------------
 
-    def process(self, detections, frame_width=None):
+    def process(self, detections, frame_width=None, timestamp=None):
         """
         计算相对速度、TTC，评估风险等级
 
@@ -96,20 +96,33 @@ class CollisionWarner:
             list[dict]: 增加以下字段:
                 rel_speed, ttc, warning_level, warning_text, lane_relevance
         """
-        current_time = time.time()
-        time_diff = current_time - self.last_timestamp
+        current_time = time.time() if timestamp is None else float(timestamp)
+        if not math.isfinite(current_time) or current_time < 0.0:
+            raise ValueError("collision timestamp must be finite and non-negative")
+        if self.last_timestamp is not None and current_time <= self.last_timestamp:
+            for obj in detections:
+                self._set_safe_defaults(obj)
+            return detections
+        time_diff = (
+            None
+            if self.last_timestamp is None
+            else current_time - self.last_timestamp
+        )
 
         # 如果提供了帧宽度，动态更新
         if frame_width is not None:
             self.frame_width = frame_width
 
+        if time_diff is None:
+            for obj in detections:
+                self._set_safe_defaults(obj)
+            self.last_frame_data = detections
+            self.last_timestamp = current_time
+            return detections
+
         if time_diff < 0.001:
             for obj in detections:
-                obj.setdefault('rel_speed', 0.0)
-                obj.setdefault('ttc', 99.0)
-                obj.setdefault('warning_level', self.LEVEL_SAFE)
-                obj.setdefault('warning_text', self.LEVEL_TEXT[self.LEVEL_SAFE])
-                obj.setdefault('lane_relevance', 1.0)
+                self._set_safe_defaults(obj)
             return detections
 
         # 如果上一帧数据太老 (> 0.5s)，说明中间丢帧了，清空历史
@@ -195,8 +208,11 @@ class CollisionWarner:
             # --- 冷却期逻辑 ---
             grid_key = self._grid_key(obj['box'])
             if obj['warning_level'] == self.LEVEL_DANGER:
-                last_danger = self._cooldown_map.get(grid_key, 0)
-                if (current_time - last_danger) < self.cooldown_sec:
+                last_danger = self._cooldown_map.get(grid_key)
+                if (
+                    last_danger is not None
+                    and (current_time - last_danger) < self.cooldown_sec
+                ):
                     obj['warning_level'] = self.LEVEL_CAUTION
                 else:
                     self._cooldown_map[grid_key] = current_time
@@ -208,6 +224,21 @@ class CollisionWarner:
         self.last_timestamp = current_time
 
         return detections
+
+    def reset(self):
+        """Clear temporal tracking when a source seeks or starts a new episode."""
+        self.last_frame_data = []
+        self.last_timestamp = None
+        self._cooldown_map.clear()
+
+    def _set_safe_defaults(self, obj):
+        obj.setdefault('rel_speed', 0.0)
+        obj.setdefault('ttc', 99.0)
+        obj.setdefault('warning_level', self.LEVEL_SAFE)
+        obj.setdefault('raw_level', self.LEVEL_SAFE)
+        obj.setdefault('streak', 1)
+        obj.setdefault('warning_text', self.LEVEL_TEXT[self.LEVEL_SAFE])
+        obj.setdefault('lane_relevance', 1.0)
 
     def _evaluate_risk(self, obj, rel_speed):
         """
