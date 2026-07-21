@@ -12,6 +12,7 @@ v5 变化:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -136,16 +137,55 @@ class RiskFusionEngine:
             return 0.0, d
         mx = 0.0
         for o in vd:
-            ttc, dist, lv = o.get("ttc", 99.0), o.get("distance", 99.0), o.get("warning_level", 0)
-            lr = o.get("lane_relevance", 1.0)
-            if ttc < d["min_ttc"]: d["min_ttc"] = ttc
-            if 0 < dist < d["min_dist"]: d["min_dist"] = dist
-            if lv > d["max_level"]: d["max_level"] = lv
-            ts = max(0.0, min(1.0, 1.0 - (ttc - self.ttc_danger) / (self.ttc_safe - self.ttc_danger))) if ttc < self.ttc_safe else 0.0
-            ds = max(0.0, min(1.0, 1.0 - (dist - self.dist_danger) / (self.dist_safe - self.dist_danger))) if 0 < dist < self.dist_safe else 0.0
-            s = max(ts, ds) * lr
-            s = max(s, {0: 0.0, 1: 0.3, 2: 0.7}.get(lv, 0.0))
-            mx = max(mx, s)
+            if not isinstance(o, dict):
+                continue
+            try:
+                ttc = float(o.get("ttc", 99.0))
+                dist = float(o.get("distance", 99.0))
+                lane = float(o.get("lane_relevance", 1.0))
+                level = int(o.get("warning_level", 0))
+            except (TypeError, ValueError):
+                continue
+            distance_valid = math.isfinite(dist) and dist > 0.0
+            ttc_valid = math.isfinite(ttc) and ttc > 0.0
+            if not distance_valid and not ttc_valid:
+                continue
+            lane = max(0.0, min(1.0, lane)) if math.isfinite(lane) else 1.0
+            level = max(0, min(2, level))
+            if ttc_valid:
+                d["min_ttc"] = min(d["min_ttc"], ttc)
+            if distance_valid:
+                d["min_dist"] = min(d["min_dist"], dist)
+            d["max_level"] = max(d["max_level"], level)
+            ttc_score = (
+                max(
+                    0.0,
+                    min(
+                        1.0,
+                        1.0
+                        - (ttc - self.ttc_danger)
+                        / (self.ttc_safe - self.ttc_danger),
+                    ),
+                )
+                if ttc_valid and ttc < self.ttc_safe
+                else 0.0
+            )
+            distance_score = (
+                max(
+                    0.0,
+                    min(
+                        1.0,
+                        1.0
+                        - (dist - self.dist_danger)
+                        / (self.dist_safe - self.dist_danger),
+                    ),
+                )
+                if distance_valid and dist < self.dist_safe
+                else 0.0
+            )
+            score = max(ttc_score, distance_score) * lane
+            score = max(score, {0: 0.0, 1: 0.3, 2: 0.7}[level])
+            mx = max(mx, score)
         return round(mx, 4), d
 
     def _classify(self, s: float) -> int:

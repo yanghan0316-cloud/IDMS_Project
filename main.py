@@ -16,6 +16,7 @@ from src.internal.face_mesh import FaceMeshDetector
 
 # --- v4 新增: 多模态融合引擎 ---
 from src.core.risk_fusion import RiskFusionEngine
+from src.core.mrm_planner import DecisionLogger, MRMPlanner
 
 try:
     import torch
@@ -109,8 +110,12 @@ def camera_producer(queue, camera_id, width, height, label="Cam", ready_event=No
                 queue.get_nowait()
             except Empty:
                 pass
+        captured_wall_time = time.time()
+        captured_sequence_time = time.monotonic()
         try:
-            queue.put_nowait(frame)
+            queue.put_nowait(
+                (frame, captured_wall_time, captured_sequence_time)
+            )
         except Full:
             pass
 
@@ -187,6 +192,7 @@ def main():
     collision_warner = None
     face_detector = None
     alerter = None
+    decision_logger = None
 
     try:
         if use_ext:
@@ -221,6 +227,13 @@ def main():
     fusion_cfg.update(config.get('fusion', {}))
     fusion_engine = RiskFusionEngine(fusion_cfg)
 
+    decision_cfg = dict(config.get('decision', {}))
+    decision_cfg['_runtime_fusion_config'] = dict(config.get('fusion', {}))
+    decision_cfg['_runtime_internal_config'] = dict(config.get('internal', {}))
+    mrm_planner = MRMPlanner(decision_cfg)
+    decision_logger = DecisionLogger(decision_cfg)
+    print(f"[System] MRM decision layer ready: {mrm_planner.model_status}")
+
     print("[System] 系统就绪！按 'q' 键退出。")
 
     # 让队列积累几帧
@@ -238,6 +251,8 @@ def main():
     frame_int = None
     frame_ext_time = 0.0
     frame_int_time = 0.0
+    frame_ext_sequence_time = 0.0
+    frame_int_sequence_time = 0.0
 
     try:
         while True:
@@ -255,15 +270,26 @@ def main():
             # 5. 非阻塞式获取双路最新帧
             if use_ext:
                 try:
-                    frame_ext = frame_queue_ext.get_nowait()
-                    frame_ext_time = time.time()
+                    packet_ext = frame_queue_ext.get_nowait()
+                    if isinstance(packet_ext, tuple) and len(packet_ext) == 3:
+                        frame_ext, frame_ext_time, frame_ext_sequence_time = packet_ext
+                    else:
+                        # Backward compatibility for an externally supplied raw-frame queue.
+                        frame_ext = packet_ext
+                        frame_ext_time = time.time()
+                        frame_ext_sequence_time = time.monotonic()
                 except Empty:
                     pass
 
             if use_int:
                 try:
-                    frame_int = frame_queue_int.get_nowait()
-                    frame_int_time = time.time()
+                    packet_int = frame_queue_int.get_nowait()
+                    if isinstance(packet_int, tuple) and len(packet_int) == 3:
+                        frame_int, frame_int_time, frame_int_sequence_time = packet_int
+                    else:
+                        frame_int = packet_int
+                        frame_int_time = time.time()
+                        frame_int_sequence_time = time.monotonic()
                 except Empty:
                     pass
 
@@ -285,6 +311,7 @@ def main():
 
             vehicle_data = []
             face_data = None
+            external_perception_valid = False
 
             # --- A. 舱外环境感知 ---
             vis_ext = None
@@ -296,6 +323,10 @@ def main():
                     dist_detections,
                     frame_width=curr_frame_ext.shape[1],
                 )
+                # A fresh, successfully processed frame with zero detections is
+                # valid evidence. A stale/disabled channel is represented by
+                # external_perception_valid=False instead of an empty road.
+                external_perception_valid = True
                 vis_ext = visualizer.draw_results(curr_frame_ext, face_data=None, vehicle_data=vehicle_data)
             elif use_ext and frame_ext is not None:
                 # 帧已过期，显示灰色提示但不做 AI 推理
@@ -343,8 +374,37 @@ def main():
                 face_data=face_data,
             )
 
+            # The RSSM observation contains external geometry without a
+            # modality-freshness mask, so its transition clock is the external
+            # camera acquisition time. A newer internal frame must not make a
+            # cached external frame look new.
+            observation_sequence_time = (
+                frame_ext_sequence_time
+                if ext_frame_valid and frame_ext_sequence_time > 0.0
+                else time.monotonic()
+            )
+            external_perception_age = (
+                max(0.0, now - frame_ext_time)
+                if frame_ext_time > 0.0
+                else None
+            )
+            decision_result = mrm_planner.plan(
+                fusion_result=fusion_result,
+                vehicle_data=vehicle_data,
+                face_data=face_data,
+                timestamp=now,
+                sequence_timestamp=observation_sequence_time,
+                external_perception_valid=external_perception_valid,
+                external_perception_age_sec=external_perception_age,
+            )
+            if decision_logger is not None:
+                decision_logger.log(decision_result, timestamp=now)
+
             # 将融合结果传给报警模块
-            ext_has_danger = fusion_result.ext_score >= 0.7
+            ext_has_danger = (
+                fusion_result.ext_score >= 0.7
+                or decision_result.action in ("BRAKE", "EMERGENCY_BRAKE")
+            )
             int_has_danger = fusion_result.int_score >= 0.5
 
             alert_result = alerter.update(
@@ -394,6 +454,8 @@ def main():
                 cv2.putText(combined_frame, "!! FATIGUE ALERT SOUND !!",
                             (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
+            visualizer.draw_decision_panel(combined_frame, decision_result)
+
             # CRITICAL 级别：全屏红框闪烁
             if fusion_result.fused_level >= 3:
                 if int(time.time() * 4) % 2 == 0:
@@ -419,7 +481,11 @@ def main():
                       f"({fusion_result.fused_score:.2f}) "
                       f"[E:{fusion_result.ext_score:.2f} "
                       f"I:{fusion_result.int_score:.2f} "
-                      f"X:{fusion_result.cross_score:.2f}]")
+                      f"X:{fusion_result.cross_score:.2f}] | "
+                      f"MRM:{decision_result.action} "
+                      f"Pred:{decision_result.predicted_risk:.2f} "
+                      f"Cost:{decision_result.cost:.2f} "
+                      f"Why:{'; '.join(decision_result.reasons[:2])}")
                 log_timer = now
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -434,6 +500,8 @@ def main():
         traceback.print_exc()
         print(f"{'='*60}")
     finally:
+        if decision_logger is not None:
+            decision_logger.close()
         cleanup_runtime(p_camera_ext, p_camera_int, alerter, face_detector)
         print("[System] 程序已安全退出。")
 

@@ -5,6 +5,7 @@ opencv-python==4.9.0.80
 # 算法库
 mediapipe>=0.10.0
 ultralytics>=8.0.0
+torch>=2.0
 
 # 工具库
 PyYAML>=6.0

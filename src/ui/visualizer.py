@@ -115,3 +115,90 @@ class Visualizer:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, self.warning_color, 3)
 
         return frame
+
+    def draw_decision_panel(self, frame, decision):
+        if decision is None:
+            return frame
+
+        h, w = frame.shape[:2]
+        panel_w = min(360, max(280, w - 20))
+        panel_h = 104
+        x = max(10, w - panel_w - 10)
+        y = 154 if w < 900 else 74
+        if y + panel_h > h - 36:
+            y = max(10, h - panel_h - 44)
+
+        action = getattr(decision, "action", "KEEP")
+        source = "RSSM" if getattr(decision, "prediction_source", "") == "rssm_hybrid" else "KIN"
+        color_map = {
+            "KEEP": (0, 200, 0),
+            "SLOW_DOWN": (0, 210, 255),
+            "BRAKE": (0, 140, 255),
+            "EMERGENCY_BRAKE": (0, 0, 255),
+        }
+        color = color_map.get(action, (0, 200, 0))
+
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (x, y), (x + panel_w, y + panel_h), (24, 24, 24), -1)
+        cv2.rectangle(overlay, (x, y), (x + panel_w, y + panel_h), color, 2)
+        cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
+
+        decel = getattr(decision, "target_decel", 0.0)
+        risk = getattr(decision, "predicted_risk", 0.0)
+        cost = getattr(decision, "cost", 0.0)
+        min_dist = getattr(decision, "predicted_min_distance", 99.0)
+        min_ttc = getattr(decision, "predicted_min_ttc", 99.0)
+        reasons = list(getattr(decision, "reasons", []) or [])
+
+        self._put_fit_text(
+            frame,
+            f"MRM[{source}]: {action}  a={decel:.1f}m/s2",
+            (x + 10, y + 25),
+            color,
+            panel_w - 20,
+            base_scale=0.62,
+            thickness=2,
+        )
+        self._put_fit_text(
+            frame,
+            f"PredRisk:{risk:.2f} Cost:{cost:.2f} MinTTC:{min_ttc:.1f}s MinD:{min_dist:.1f}m",
+            (x + 10, y + 50),
+            (220, 220, 220),
+            panel_w - 20,
+            base_scale=0.45,
+            thickness=1,
+        )
+
+        reason_text = " | ".join(reasons[:2]) if reasons else "risk remains low"
+        self._put_fit_text(
+            frame,
+            reason_text,
+            (x + 10, y + 76),
+            (210, 210, 210),
+            panel_w - 20,
+            base_scale=0.43,
+            thickness=1,
+        )
+
+        if len(reasons) > 2:
+            self._put_fit_text(
+                frame,
+                " | ".join(reasons[2:4]),
+                (x + 10, y + 96),
+                (180, 180, 180),
+                panel_w - 20,
+                base_scale=0.38,
+                thickness=1,
+            )
+
+        return frame
+
+    @staticmethod
+    def _put_fit_text(frame, text, origin, color, max_width, base_scale=0.5, thickness=1):
+        scale = base_scale
+        while scale > 0.28:
+            (tw, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, thickness)
+            if tw <= max_width:
+                break
+            scale -= 0.03
+        cv2.putText(frame, text, origin, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)

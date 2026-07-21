@@ -156,3 +156,60 @@ fusion:
  
   # 融合分值 EMA 平滑
   ema_alpha: 0.4
+
+# --- Minimum Risk Maneuver decision layer ---
+decision:
+  enabled: true
+  # hybrid = RSSM CVaR imagination + kinematic safety baseline.
+  # A missing/invalid checkpoint automatically falls back to kinematic mode.
+  predictor: "hybrid"
+  rssm_can_deescalate: false
+  horizons_sec: [0.5, 1.0, 1.5]
+  ttc_critical: 1.2
+  ttc_safe: 5.0
+  dist_critical: 3.0
+  dist_safe: 30.0
+  driver_slowdown_threshold: 0.55
+  driver_high_threshold: 0.75
+  decelerations:
+    KEEP: 0.0
+    SLOW_DOWN: 1.5
+    BRAKE: 3.5
+    EMERGENCY_BRAKE: 6.5
+  log_enable: true
+  log_path: "logs/mrm_decisions.csv"
+  log_interval_sec: 0.5
+
+  safety_shield:
+    enabled: true
+    emergency_ttc: 0.65
+    emergency_distance: 1.25
+    brake_ttc: 1.2
+    brake_distance: 3.0
+    caution_ttc: 3.0
+    caution_distance: 10.0
+    # External perception loss is unknown, never an empty safe road.
+    perception_loss_min_rank: 1
+    perception_loss_brake_after_sec: 0.5
+
+  rssm:
+    enabled: true
+    checkpoint: "checkpoints/idms_rssm.pt"
+    # Paste the SHA-256 printed by train_rssm.py after validation.
+    require_checkpoint_sha256: true
+    checkpoint_sha256: "01513013dfe9f9ecc06b9c009370ca4fe37790a0aa7bcc296bb3f48a6f6dda19"
+    device: "cpu"
+    min_training_steps: 1000
+    embed_dim: 64
+    deter_dim: 64
+    stoch_dim: 8
+    classes: 8
+    hidden_dim: 64
+    unimix_ratio: 0.01
+    free_nats: 1.0
+    dt_sec: 0.25
+    max_gap_sec: 1.5
+    samples: 8
+    cvar_alpha: 0.75
+    max_decel: 8.0
+    max_delay: 0.5
